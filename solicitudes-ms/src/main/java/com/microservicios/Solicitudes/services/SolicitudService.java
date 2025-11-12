@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
 import com.microservicios.Solicitudes.dto.responses.SolicitudDTO;
+import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.repository.SolicitudRepository;
 
@@ -56,6 +57,26 @@ public class SolicitudService {
         Solicitud solicitud = solicitudRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
         solicitudRepository.delete(solicitud);
+    }
+
+    public SolicitudDTO finalizarSolicitud(Integer idSolicitud) {
+        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
+                
+        Ruta ruta = solicitud.getRutaAsignada();
+        Double costoRealTotal = ruta.getTramos().stream()
+                    .mapToDouble(t -> t.getCostoReal() != null ? t.getCostoReal() : 0.0)
+                    .sum();
+
+            // IMPORTANTE: Actualizar la solicitud con estado FINALIZADA
+        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.FINALIZADA);
+        //deben ser calculados
+        solicitud.setCostoReal(costoRealTotal);
+        //debera calcular tempo real
+        solicitud.setTiempoReal("2 horas");
+
+        Solicitud solicitudFinalizada = solicitudRepository.save(solicitud);
+        return convertToDTO(solicitudFinalizada);
     }
     
     private SolicitudDTO convertToDTO(Solicitud solicitud) {

@@ -5,11 +5,9 @@ import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.client.TransporteServiceClient;
-import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.Tramo;
-import com.microservicios.Solicitudes.repository.SolicitudRepository;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -19,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class TramoService {
 
     private final TramoRepository tramoRepository;
-    private final SolicitudRepository solicitudRepository;
+    private final SolicitudService solicitudService;
     private final CalculoCostoService calculoCostoService;
     private final TransporteServiceClient transporteServiceClient;
 
@@ -37,6 +35,7 @@ public class TramoService {
         tramo.setFechaInicio(LocalDate.now());
         tramoRepository.save(tramo);
     }
+
 
     public Tramo finalizarTramo(Integer idTramo) {
         // Obtener el tramo y validar que existe
@@ -84,16 +83,11 @@ public class TramoService {
                 .allMatch(t -> t.getFechaFin() != null);
 
         if (todosLosTramosFianlizados) {
-            // Calcular el costo real total de la solicitud
-            Double costoRealTotal = ruta.getTramos().stream()
-                    .mapToDouble(t -> t.getCostoReal() != null ? t.getCostoReal() : 0.0)
-                    .sum();
-
-            // IMPORTANTE: Actualizar la solicitud con estado COMPLETADA
-            solicitud.setCostoReal(costoRealTotal);
-            solicitud.setEstado(EstadoSolicitud.COMPLETADA);
-            solicitudRepository.save(solicitud);
+            solicitudService.finalizarSolicitud(solicitud.getId());
         }
+
+         transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
+            
 
         return tramo;
     }
