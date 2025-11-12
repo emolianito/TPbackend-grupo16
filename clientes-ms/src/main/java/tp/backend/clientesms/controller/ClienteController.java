@@ -5,7 +5,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tp.backend.clientesms.entity.Cliente;
+import tp.backend.clientesms.exception.ClienteNotFoundException;
 import tp.backend.clientesms.service.ClienteService;
+import tp.backend.clientesms.exception.ClienteNotFoundException;
 
 import java.net.URI;
 import java.util.List;
@@ -30,6 +32,9 @@ public class ClienteController {
     @GetMapping("/{dni}")
     public ResponseEntity<Cliente> obtenerPorDni(@PathVariable String dni) {
         Cliente c = clienteService.getClienteById(dni);
+        if (c == null) {
+            throw new ClienteNotFoundException("Dni de cliente no existente");
+        }
         return ResponseEntity.ok(c);
     }
 

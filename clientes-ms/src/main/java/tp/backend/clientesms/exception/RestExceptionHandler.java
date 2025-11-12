@@ -27,4 +27,11 @@ public class RestExceptionHandler {
         body.put("error", ex.getReason() != null ? ex.getReason() : ex.getMessage());
         return ResponseEntity.status(ex.getStatusCode()).body(body);
     }
+
+    @ExceptionHandler(ClienteNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleClienteNotFound(ClienteNotFoundException ex) {
+        // usar ex.getMessage() si quieres el mensaje personalizado desde el servicio
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", "Dni de cliente no existente"));
+    }
 }

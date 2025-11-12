@@ -3,6 +3,7 @@ package tp.backend.clientesms.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tp.backend.clientesms.entity.Cliente;
+import tp.backend.clientesms.exception.ClienteNotFoundException;
 import tp.backend.clientesms.repository.ClienteRepository;
 
 import java.util.List;
@@ -21,7 +22,7 @@ public class ClienteService {
     // Obtener cliente por DNI
     public Cliente getClienteById(String dni) {
         return clienteRepository.findById(dni)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con DNI: " + dni));
+                .orElseThrow(() -> new ClienteNotFoundException("Dni de cliente no existente"));
     }
 
     // Listar todos los clientes
@@ -44,7 +45,7 @@ public class ClienteService {
     // Eliminar cliente
     public void deleteCliente(String dni) {
         if (!clienteRepository.existsById(dni)) {
-            throw new RuntimeException("Cliente no encontrado con DNI: " + dni);
+            throw new ClienteNotFoundException("Dni de cliente no existente");
         }
         clienteRepository.deleteById(dni);
     }
