@@ -28,4 +28,12 @@ public class TransporteServiceClient {
                 .toBodilessEntity(); 
 
     }
+
+    public void liberarCamion(String patente) {
+        String url = TRANSPORTE_SERVICE_URL + "/camiones/" + patente + "/liberar";
+        restClient.patch()
+                .uri(url)
+                .retrieve()
+                .toBodilessEntity(); 
+    }
 }

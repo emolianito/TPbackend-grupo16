@@ -56,4 +56,9 @@ public class CamionController {
     public CamionDto ocuparCamion(@PathVariable String patente) {
         return camionService.ocuparCamion(patente);
     }
+    
+    @PatchMapping("/{patente}/liberar")
+    public CamionDto liberarCamion(@PathVariable String patente) {
+        return camionService.liberarCamion(patente);
+    }
 }

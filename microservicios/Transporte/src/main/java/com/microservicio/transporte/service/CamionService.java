@@ -69,6 +69,19 @@ public class CamionService {
         return toDto(updated);
     }
 
+    public CamionDto liberarCamion(String patente) {
+        Camion camion = camionRepository.findByPatente(patente)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Camión no encontrado"));
+
+        if (camion.getEstaDisponible()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El camión ya está libre");
+        }
+
+        camion.setEstaDisponible(true);
+        Camion updated = camionRepository.save(camion);
+        return toDto(updated);
+    }
+
     private CamionDto toDto(Camion c) {
         CamionDto dto = new CamionDto();
         dto.setId(c.getId());
