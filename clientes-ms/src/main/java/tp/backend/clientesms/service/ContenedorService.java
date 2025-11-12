@@ -1,3 +1,4 @@
+// java
 package tp.backend.clientesms.service;
 
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import tp.backend.clientesms.dto.EstadoContenedorDTO;
 import tp.backend.clientesms.entity.Contenedor;
 import tp.backend.clientesms.entity.EstadoContenedor;
 import tp.backend.clientesms.entity.Cliente;
+import tp.backend.clientesms.exception.ClienteNotFoundException;
+import tp.backend.clientesms.exception.EstadoContenedorNotFoundException;
 import tp.backend.clientesms.repository.ContenedorRepository;
 import tp.backend.clientesms.repository.EstadoContenedorRepository;
 import tp.backend.clientesms.repository.ClienteRepository;
@@ -35,13 +38,13 @@ public class ContenedorService {
     }
 
     public ContenedorDTO saveFromDto(ContenedorDTO dto) {
-        // Verificar existencia de estado
+        // Verificar existencia de estado (usar ResponseStatusException para que el handler global lo mime)
         EstadoContenedor estado = estadoRepo.findById(dto.getEstadoId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado no existe"));
+                .orElseThrow(() -> new EstadoContenedorNotFoundException("Estado con id " + dto.getEstadoId() + " no existe"));
 
-        // Verificar existencia de cliente
+        // Verificar existencia de cliente (reutilizar excepción existente)
         Cliente cliente = clienteRepo.findById(dto.getClienteDni())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cliente no existe"));
+                .orElseThrow(() -> new ClienteNotFoundException("Cliente con dni " + dto.getClienteDni() + " no existe"));
 
         // Mapear y guardar
         Contenedor c = new Contenedor();
@@ -52,9 +55,7 @@ public class ContenedorService {
 
         Contenedor saved = repository.save(c);
 
-        // Mapear a DTO (puedes reutilizar tu toDto)
-        ContenedorDTO result = toDto(saved);
-        return result;
+        return toDto(saved);
     }
 
     public Optional<ContenedorDTO> update(Integer id, ContenedorDTO dto) {
@@ -63,13 +64,17 @@ public class ContenedorService {
             existing.setVolumen(dto.getVolumen());
 
             if (dto.getEstadoId() != null) {
-                estadoRepo.findById(dto.getEstadoId()).ifPresent(existing::setEstado);
+                EstadoContenedor estado = estadoRepo.findById(dto.getEstadoId())
+                        .orElseThrow(() -> new EstadoContenedorNotFoundException("Estado con id " + dto.getEstadoId() + " no existe"));
+                existing.setEstado(estado);
             } else {
                 existing.setEstado(null);
             }
 
             if (dto.getClienteDni() != null) {
-                clienteRepo.findById(dto.getClienteDni()).ifPresent(existing::setCliente);
+                Cliente cliente = clienteRepo.findById(dto.getClienteDni())
+                        .orElseThrow(() -> new ClienteNotFoundException("Cliente con dni " + dto.getClienteDni() + " no existe"));
+                existing.setCliente(cliente);
             } else {
                 existing.setCliente(null);
             }

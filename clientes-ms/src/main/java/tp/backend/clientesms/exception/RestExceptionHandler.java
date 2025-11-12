@@ -34,4 +34,10 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("message", "Dni de cliente no existente"));
     }
+
+    @ExceptionHandler(EstadoContenedorNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleEstadoNotFound(EstadoContenedorNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("message", ex.getMessage()));
+    }
 }
