@@ -13,18 +13,26 @@ import static org.springframework.web.servlet.function.RequestPredicates.path;
 @Configuration
 public class GatewayRoutesConfig {
 
+    // Clientes + contenedores (microservicio en 8081)
     @Bean
     public RouterFunction<ServerResponse> gatewayRoutes() {
 
-        // Cambiá el 8081 por el puerto real donde corre tu clientesms
         String backendBaseUrl = "http://localhost:8081";
 
         return route("clientes-contenedores-route")
-                // Cualquier método (GET, POST, PUT, DELETE, ...) con este path
                 .route(path("/api/clientes/**"), http())
                 .route(path("/api/contenedores/**"), http())
-                // Define a dónde se proxyean las requests
                 .before(uri(backendBaseUrl))
+                .build();
+    }
+
+    // Ubicaciones (microservicio en 8083)
+    @Bean
+    public RouterFunction<ServerResponse> ubicacionesRoutes() {
+        return route("ubicaciones-route")
+                .route(path("/ubicaciones/depositos/**"), http())
+                .route(path("/ubicaciones/localizaciones/**"), http())
+                .before(uri("http://localhost:8082"))
                 .build();
     }
 }
