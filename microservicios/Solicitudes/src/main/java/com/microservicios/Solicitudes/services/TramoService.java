@@ -24,9 +24,16 @@ public class TramoService {
     public void asignarCamion(Integer idTramo, String patenteCamion) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
-        tramo.setPatenteCamion(patenteCamion);
-        transporteServiceClient.ocuparCamion(patenteCamion);
-        tramoRepository.save(tramo);
+        
+        Integer idContenedor = tramo.getRuta().getSolicitud().getIdContenedor();
+        
+        if (transporteServiceClient.verificarCapacidad(patenteCamion, idContenedor)) {
+            transporteServiceClient.ocuparCamion(patenteCamion);
+            tramo.setPatenteCamion(patenteCamion);
+            tramoRepository.save(tramo);
+            return;
+        }
+        throw new RuntimeException("El camión no es adecuado para el contenedor del tramo");
     }
 
     public void iniciarTramo(Integer idTramo) {

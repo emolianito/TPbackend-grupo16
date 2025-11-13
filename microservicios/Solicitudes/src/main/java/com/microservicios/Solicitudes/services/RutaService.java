@@ -5,13 +5,13 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+
 import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.TipoTramo;
 import com.microservicios.Solicitudes.entity.Tramo;
 import com.microservicios.Solicitudes.repository.RutaRepository;
-import com.microservicios.Solicitudes.repository.SolicitudRepository;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ public class RutaService {
 
     private final RutaRepository rutaRepository;
     private final TramoRepository tramoRepository;
-    private final SolicitudRepository solicitudRepository;
+    private final SolicitudService solicitudService;
     private final CalculoCostoService calculoCostoService;
 
     /**
@@ -210,8 +210,8 @@ public class RutaService {
      * solicitudes puedan usar la misma ruta sugerida sin compartir datos.
      */
     public Solicitud asignarRuta(Integer idSolicitud, Integer idRuta) {
-        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
-                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
+
+        Solicitud solicitud = solicitudService.getSolicitudEntityById(idSolicitud);
 
         Ruta rutaSugerida = rutaRepository.findById(idRuta)
                 .orElseThrow(() -> new RuntimeException("Ruta no encontrada"));
@@ -242,7 +242,7 @@ public class RutaService {
                         }).orElse("00:00")
         );
 
-        return solicitudRepository.save(solicitud);
+        return solicitudService.actualizarSolicitud(solicitud);
     }
 
     /**

@@ -23,7 +23,7 @@ public class SolicitudService {
         Solicitud solicitud = new Solicitud();
         solicitud.setIdCliente(dto.getIdCliente());
         solicitud.setIdContenedor(dto.getIdContenedor());
-        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.PENDIENTE);
+        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.SOLICITADA);
         solicitud.setFechaSolicitud(LocalDate.now());
 
         return solicitudRepository.save(solicitud);
@@ -77,6 +77,17 @@ public class SolicitudService {
 
         Solicitud solicitudFinalizada = solicitudRepository.save(solicitud);
         return convertToDTO(solicitudFinalizada);
+    }
+
+    public Solicitud actualizarSolicitud(Solicitud solicitud) {
+        Solicitud solicitudExistente = solicitudRepository.findById(solicitud.getId())
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
+        return solicitudRepository.save(solicitudExistente);
+    }
+
+    public Solicitud getSolicitudEntityById(int id) {
+        return solicitudRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
     }
     
     private SolicitudDTO convertToDTO(Solicitud solicitud) {

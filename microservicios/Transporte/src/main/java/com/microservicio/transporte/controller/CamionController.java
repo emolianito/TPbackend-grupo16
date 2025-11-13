@@ -16,6 +16,8 @@ import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
 import com.microservicio.transporte.service.CamionService;
 
+import jakarta.persistence.criteria.CriteriaBuilder.In;
+
 @RestController
 @RequestMapping("/camiones")
 public class CamionController {
@@ -60,5 +62,10 @@ public class CamionController {
     @PatchMapping("/{patente}/liberar")
     public CamionDto liberarCamion(@PathVariable String patente) {
         return camionService.liberarCamion(patente);
+    }
+
+    @PostMapping("/{patente}/comprobar-capacidad")
+    public boolean comprobarCapacidad(@PathVariable String patente, @RequestBody Integer idContenedor) {
+        return camionService.comprobarCapacidad(patente, idContenedor);
     }
 }
