@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 import tp.backend.clientesms.entity.Cliente;
 import tp.backend.clientesms.exception.ClienteNotFoundException;
 import tp.backend.clientesms.service.ClienteService;
-import tp.backend.clientesms.exception.ClienteNotFoundException;
 
 import java.net.URI;
 import java.util.List;

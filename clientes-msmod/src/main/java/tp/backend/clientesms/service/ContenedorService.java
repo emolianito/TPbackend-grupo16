@@ -2,9 +2,7 @@
 package tp.backend.clientesms.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import tp.backend.clientesms.dto.ClienteDTO;
 import tp.backend.clientesms.dto.ContenedorDTO;
 import tp.backend.clientesms.dto.EstadoContenedorDTO;
