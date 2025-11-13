@@ -6,6 +6,8 @@ import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
 import com.microservicio.transporte.repository.CamionRepository;
 
+import lombok.AllArgsConstructor;
+
 import com.microservicio.transporte.entity.Camion;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -14,17 +16,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@AllArgsConstructor
 public class CamionService {
     private final CamionRepository camionRepository;
-
-    public CamionService(CamionRepository camionRepository) {
-        this.camionRepository = camionRepository;
-    }
+    private final TransportistaService transportistaService;
 
     public CamionDto crearCamion(crearCamionDto camion) {
         Camion entity = new Camion();
         entity.setPatente(camion.getPatente());
-        entity.setDniTransportista(camion.getDniTransportista());
+        entity.setTransportista(transportistaService.getTransportistaEntity(camion.getDniTransportista()));
         entity.setCapacidadMaxPeso(camion.getCapacidadMaxPeso());
         entity.setCapacidadMaxVolumen(camion.getCapacidadMaxVolumen());
         entity.setEstaDisponible(true);
@@ -86,7 +86,7 @@ public class CamionService {
         CamionDto dto = new CamionDto();
         dto.setId(c.getId());
         dto.setPatente(c.getPatente());
-        dto.setDniTransportista(c.getDniTransportista());
+        dto.setDniTransportista(c.getTransportista().getDni());
         dto.setCapacidadMaxPeso(c.getCapacidadMaxPeso());
         dto.setCapacidadMaxVolumen(c.getCapacidadMaxVolumen());
         dto.setEstaDisponible(c.getEstaDisponible());
