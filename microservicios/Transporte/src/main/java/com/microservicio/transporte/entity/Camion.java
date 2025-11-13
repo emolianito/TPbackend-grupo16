@@ -19,7 +19,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Camion {
 
-@Id // Marca este campo como la clave primaria
+	@Id // Marca este campo como la clave primaria
     @Column(name = "patente", length = 15, nullable = false, unique = true)
     private String patente;
 
