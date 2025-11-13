@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CamionDto {
 
-	private Long id;
 	private String patente;
 	private String dniTransportista;
 	private BigDecimal capacidadMaxPeso;
