@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
@@ -25,7 +27,7 @@ public class Camion {
 	@Column(name = "patente", length = 15, nullable = false, unique = true)
 	private String patente;
 
-	@Column(name = "dni_transportista", length = 20)
+	@Column(name = "dni_transportista", length = 20, nullable = false)
 	private String dniTransportista;
 
 	@Column(name = "capacidad_max_peso", precision = 14, scale = 2)
