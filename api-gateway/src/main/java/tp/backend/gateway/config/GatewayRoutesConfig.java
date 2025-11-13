@@ -48,4 +48,16 @@ public class GatewayRoutesConfig {
                 .before(uri("http://localhost:8083"))
                 .build();
     }
+
+    @Bean
+    public RouterFunction<ServerResponse> transporteRoutes() {
+        return route("transporte-route")
+                // Camiones
+                .route(path("/camiones/**"), http())
+                // Transportistas
+                .route(path("/transportistas/**"), http())
+                // URL real del microservicio de transporte
+                .before(uri("http://localhost:8084"))
+                .build();
+    }
 }
