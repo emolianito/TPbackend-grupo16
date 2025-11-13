@@ -35,4 +35,17 @@ public class GatewayRoutesConfig {
                 .before(uri("http://localhost:8082"))
                 .build();
     }
+
+    @Bean
+    public RouterFunction<ServerResponse> solicitudesRoutes() {
+        return route("solicitudes-route")
+                // Rutas del microservicio de Solicitudes
+                .route(path("/rutas/**"), http())                 // RutaController
+                .route(path("/solicitudes/**"), http())           // SolicitudController + TramoController
+                .route(path("/tarifas/**"), http())               // TarifaController
+
+                // Se envían al microservicio real en puerto 8083
+                .before(uri("http://localhost:8083"))
+                .build();
+    }
 }
