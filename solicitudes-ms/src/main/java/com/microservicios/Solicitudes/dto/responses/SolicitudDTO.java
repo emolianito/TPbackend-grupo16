@@ -3,6 +3,7 @@ package com.microservicios.Solicitudes.dto.responses;
 import java.time.LocalDate;
 import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,8 +14,8 @@ import lombok.NoArgsConstructor;
 public class SolicitudDTO {
 
     private Integer id;
-    private Long idContenedor;
-    private Long idCliente;
+    private Integer idContenedor;
+    private Integer idCliente;
     private Double costoEstimado;
     private Double costoReal;
     private String tiempoEstimado;

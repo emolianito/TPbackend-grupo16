@@ -2,6 +2,8 @@ package com.microservicio.transporte.service;
 
 import org.springframework.stereotype.Service;
 
+import com.microservicio.transporte.client.ClienteServiceClient;
+import com.microservicio.transporte.dto.external.ContenedorDto;
 import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
 import com.microservicio.transporte.repository.CamionRepository;
@@ -20,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class CamionService {
     private final CamionRepository camionRepository;
     private final TransportistaService transportistaService;
+    private final ClienteServiceClient clienteServiceClient;
 
     public CamionDto crearCamion(crearCamionDto camion) {
         Camion entity = new Camion();
@@ -80,6 +83,17 @@ public class CamionService {
         camion.setEstaDisponible(true);
         Camion updated = camionRepository.save(camion);
         return toDto(updated);
+    }
+
+    public boolean comprobarCapacidad(String patente, Integer idContenedor) {
+        Camion camion = camionRepository.findByPatente(patente)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Camión no encontrado"));
+
+        ContenedorDto contenedor = clienteServiceClient.obtenerContenedorPorId(idContenedor);
+
+
+        return contenedor.getPeso().compareTo(camion.getCapacidadMaxPeso()) <= 0 &&
+               contenedor.getVolumen().compareTo(camion.getCapacidadMaxVolumen()) <= 0;
     }
 
     private CamionDto toDto(Camion c) {
