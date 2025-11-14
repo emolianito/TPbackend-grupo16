@@ -8,24 +8,23 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.microservicios.Solicitudes.dto.request.CrearTarifaDTO;
 import com.microservicios.Solicitudes.entity.Tarifa;
 import com.microservicios.Solicitudes.services.TarifaService;
 
 import org.springframework.web.bind.annotation.RequestBody;
 
+import lombok.AllArgsConstructor;
 
 @RestController
 @RequestMapping("/tarifas")
-public class TatifaController {
+@AllArgsConstructor
+public class TarifaController {
     
     private final TarifaService tarifaService;
 
-    public TatifaController(TarifaService tarifaService) {
-        this.tarifaService = tarifaService;
-    }
-
     @PostMapping
-    public Tarifa crearTarifa(@RequestBody Tarifa tarifa) {
+    public Tarifa crearTarifa(@RequestBody CrearTarifaDTO tarifa) {
         return tarifaService.crearTarifa(tarifa);
     }
 

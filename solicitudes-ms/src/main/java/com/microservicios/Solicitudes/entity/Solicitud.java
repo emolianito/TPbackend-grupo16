@@ -1,23 +1,13 @@
 package com.microservicios.Solicitudes.entity;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -51,7 +41,8 @@ public class Solicitud {
     @Column(nullable = true)
     private String tiempoReal;
 
-    @OneToOne(mappedBy = "solicitud", cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "id_ruta", referencedColumnName = "id")
     @JsonManagedReference
     private Ruta rutaAsignada;
 
@@ -63,10 +54,11 @@ public class Solicitud {
     private LocalDate fechaSolicitud;
 
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL)
-    private List<CambioEstadoSolicitud> cambiosEstado;
+    private List<CambioEstadoSolicitud> cambiosEstado = new ArrayList<>();
 
     
     public void addCambioEstado(CambioEstadoSolicitud cambioEstado) {
+        cambioEstado.setSolicitud(this);
         this.cambiosEstado.add(cambioEstado);
     }
 }

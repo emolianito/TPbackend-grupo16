@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.microservicios.Solicitudes.entity.Tarifa;
 import com.microservicios.Solicitudes.repository.TarifaRepository;
+import com.microservicios.Solicitudes.dto.request.CrearTarifaDTO;
 
 import lombok.AllArgsConstructor;
 
@@ -25,7 +26,7 @@ public class TarifaService {
         return tarifaRepository.findAll();
     }
 
-    public Tarifa crearTarifa(Tarifa tarifa) {
+    public Tarifa crearTarifa(CrearTarifaDTO tarifa) {
         // Validar que la fecha de inicio no sea nula
         if (tarifa.getFechaInicioVigencia() == null) {
             throw new IllegalArgumentException("La fecha de inicio de vigencia no puede ser nula");
@@ -46,7 +47,16 @@ public class TarifaService {
         }
 
         // Guardar la nueva tarifa
-        return tarifaRepository.save(tarifa);
+        Tarifa nuevaTarifa = Tarifa.builder()
+            .fechaInicioVigencia(tarifa.getFechaInicioVigencia())
+            .fechaFinVigencia(tarifa.getFechaFinVigencia())
+            .costoBasePorKm(tarifa.getCostoBasePorKm())
+            .costoLitroCombustible(tarifa.getCostoLitroCombustible())
+            .consumoPromedioCombustible(tarifa.getConsumoPromedioCombustible())
+            .costoEstadiaDiariaDeposito(tarifa.getCostoEstadiaDiariaDeposito())
+            .costoFijoPorTramo(tarifa.getCostoFijoPorTramo())
+            .build();
+        return tarifaRepository.save(nuevaTarifa);
     }
 
     public Tarifa getTarifaVigente() {

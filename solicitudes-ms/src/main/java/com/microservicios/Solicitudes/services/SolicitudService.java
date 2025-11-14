@@ -1,6 +1,7 @@
 package com.microservicios.Solicitudes.services;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.microservicios.Solicitudes.client.ClienteServiceClient;
 import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
+import com.microservicios.Solicitudes.dto.responses.CambioEstadoSolicitudDTO;
 import com.microservicios.Solicitudes.dto.responses.SolicitudDTO;
 import com.microservicios.Solicitudes.entity.CambioEstadoSolicitud;
 import com.microservicios.Solicitudes.entity.EstadoSolicitud;
@@ -123,7 +125,7 @@ public class SolicitudService {
                 .orElseThrow(() -> new RuntimeException("Estado de solicitud no encontrado: " + nuevoEstado));
 
         List<CambioEstadoSolicitud> cambiosEstado = solicitud.getCambiosEstado();
-        if (!cambiosEstado.isEmpty()) {
+        if (cambiosEstado != null) {
             for (CambioEstadoSolicitud cambio : cambiosEstado) {
                 if (cambio.getFechaHoraFin() == null) {
                     cambio.setFechaHoraFin(LocalDate.now().atStartOfDay());
@@ -151,5 +153,23 @@ public class SolicitudService {
         solicitudRepository.save(solicitud);
     }   
 
+
+    public List<CambioEstadoSolicitudDTO> getCambiosEstadoSolicitud(int solicitudId) {
+        Solicitud solicitud = solicitudRepository.findById(solicitudId)
+                .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
+        List<CambioEstadoSolicitudDTO> cambiosEstadoDTO = new ArrayList<>();
+        List<CambioEstadoSolicitud> cambiosEstado = solicitud.getCambiosEstado();
+        for (CambioEstadoSolicitud cambio : cambiosEstado) {
+            CambioEstadoSolicitudDTO dto = CambioEstadoSolicitudDTO.builder()
+                    .fechaHoraInicio(cambio.getFechaHoraInicio())
+                    .fechaHoraFin(cambio.getFechaHoraFin())
+                    .estadoSolicitud(cambio.getEstadoSolicitud())
+                    .estadoContenedor(cambio.getEstadoContenedor())
+                    .build();
+            cambiosEstadoDTO.add(dto);
+        }
+
+        return cambiosEstadoDTO;
+    }
 
 }
