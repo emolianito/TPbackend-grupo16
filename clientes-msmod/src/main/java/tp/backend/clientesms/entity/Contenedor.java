@@ -29,4 +29,7 @@ public class Contenedor {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "cliente", referencedColumnName = "dni")
     private Cliente cliente;
+
+    @Column(name = "deposito_id")
+    private Long depositoId;
 }

@@ -28,10 +28,18 @@ public class ContenedorController {
         return service.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/deposito/{depositoId}")
+    public ResponseEntity<List<ContenedorDTO>> getByDepositoId(@PathVariable Long depositoId) {
+        List<ContenedorDTO> contenedores = service.findByDepositoId(depositoId);
+        return ResponseEntity.ok(contenedores);
+    }
+
     @PostMapping
-    public ResponseEntity<ContenedorDTO> create(@Valid @RequestBody ContenedorDTO dto, UriComponentsBuilder uriBuilder) {
+    public ResponseEntity<ContenedorDTO> create(@Valid @RequestBody ContenedorDTO dto,
+            UriComponentsBuilder uriBuilder) {
         ContenedorDTO saved = service.saveFromDto(dto);
-        // Volver a cargar el DTO guardado para asegurar que las asociaciones anidadas estén pobladas
+        // Volver a cargar el DTO guardado para asegurar que las asociaciones anidadas
+        // estén pobladas
         ContenedorDTO full = service.findById(saved.getId()).orElse(saved);
         URI uri = uriBuilder.path("/api/contenedores/{id}").buildAndExpand(full.getId()).toUri();
         return ResponseEntity.created(uri).body(full);

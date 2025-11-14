@@ -30,6 +30,8 @@ public class ContenedorDTO {
     @NotNull(message = "clienteDni es requerido")
     private String clienteDni;
 
+    private Long depositoId;
+
     // Campos anidados para respuesta
     private EstadoContenedorDTO estado;
     private ClienteDTO cliente;

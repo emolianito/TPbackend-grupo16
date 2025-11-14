@@ -2,7 +2,9 @@
 package tp.backend.clientesms.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import tp.backend.clientesms.dto.ClienteDTO;
 import tp.backend.clientesms.dto.ContenedorDTO;
 import tp.backend.clientesms.dto.EstadoContenedorDTO;
@@ -14,6 +16,7 @@ import tp.backend.clientesms.exception.EstadoContenedorNotFoundException;
 import tp.backend.clientesms.repository.ContenedorRepository;
 import tp.backend.clientesms.repository.EstadoContenedorRepository;
 import tp.backend.clientesms.repository.ClienteRepository;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -34,14 +37,23 @@ public class ContenedorService {
         return repository.findById(id).map(this::toDto);
     }
 
+    public List<ContenedorDTO> findByDepositoId(Long depositoId) {
+        return repository.findByDepositoId(depositoId).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     public ContenedorDTO saveFromDto(ContenedorDTO dto) {
-        // Verificar existencia de estado (usar ResponseStatusException para que el handler global lo mime)
+        // Verificar existencia de estado (usar ResponseStatusException para que el
+        // handler global lo mime)
         EstadoContenedor estado = estadoRepo.findById(dto.getEstadoId())
-                .orElseThrow(() -> new EstadoContenedorNotFoundException("Estado con id " + dto.getEstadoId() + " no existe"));
+                .orElseThrow(() -> new EstadoContenedorNotFoundException(
+                        "Estado con id " + dto.getEstadoId() + " no existe"));
 
         // Verificar existencia de cliente (reutilizar excepción existente)
         Cliente cliente = clienteRepo.findById(dto.getClienteDni())
-                .orElseThrow(() -> new ClienteNotFoundException("Cliente con dni " + dto.getClienteDni() + " no existe"));
+                .orElseThrow(
+                        () -> new ClienteNotFoundException("Cliente con dni " + dto.getClienteDni() + " no existe"));
 
         // Mapear y guardar
         Contenedor c = new Contenedor();
@@ -49,6 +61,7 @@ public class ContenedorService {
         c.setVolumen(dto.getVolumen());
         c.setEstado(estado);
         c.setCliente(cliente);
+        c.setDepositoId(dto.getDepositoId());
 
         Contenedor saved = repository.save(c);
 
@@ -59,10 +72,12 @@ public class ContenedorService {
         return repository.findById(id).map(existing -> {
             existing.setPeso(dto.getPeso());
             existing.setVolumen(dto.getVolumen());
+            existing.setDepositoId(dto.getDepositoId());
 
             if (dto.getEstadoId() != null) {
                 EstadoContenedor estado = estadoRepo.findById(dto.getEstadoId())
-                        .orElseThrow(() -> new EstadoContenedorNotFoundException("Estado con id " + dto.getEstadoId() + " no existe"));
+                        .orElseThrow(() -> new EstadoContenedorNotFoundException(
+                                "Estado con id " + dto.getEstadoId() + " no existe"));
                 existing.setEstado(estado);
             } else {
                 existing.setEstado(null);
@@ -70,7 +85,8 @@ public class ContenedorService {
 
             if (dto.getClienteDni() != null) {
                 Cliente cliente = clienteRepo.findById(dto.getClienteDni())
-                        .orElseThrow(() -> new ClienteNotFoundException("Cliente con dni " + dto.getClienteDni() + " no existe"));
+                        .orElseThrow(() -> new ClienteNotFoundException(
+                                "Cliente con dni " + dto.getClienteDni() + " no existe"));
                 existing.setCliente(cliente);
             } else {
                 existing.setCliente(null);
@@ -89,7 +105,8 @@ public class ContenedorService {
 
     // Mapear entidad a DTO incluyendo objetos anidados
     private ContenedorDTO toDto(Contenedor c) {
-        if (c == null) return null;
+        if (c == null)
+            return null;
 
         ContenedorDTO dto = ContenedorDTO.builder()
                 .id(c.getId())
@@ -97,6 +114,7 @@ public class ContenedorService {
                 .volumen(c.getVolumen())
                 .estadoId(c.getEstado() != null ? c.getEstado().getId() : null)
                 .clienteDni(c.getCliente() != null ? c.getCliente().getDni() : null)
+                .depositoId(c.getDepositoId())
                 .build();
 
         EstadoContenedor e = c.getEstado();
@@ -106,7 +124,8 @@ public class ContenedorService {
 
         Cliente cl = c.getCliente();
         if (cl != null) {
-            dto.setCliente(new ClienteDTO(cl.getDni(), cl.getNombre(), cl.getApellido(), cl.getEmail(), cl.getTelefono()));
+            dto.setCliente(
+                    new ClienteDTO(cl.getDni(), cl.getNombre(), cl.getApellido(), cl.getEmail(), cl.getTelefono()));
         }
 
         return dto;
