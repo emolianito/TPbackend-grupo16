@@ -12,9 +12,11 @@ import lombok.RequiredArgsConstructor;
 public class UbicacionesServiceClient {
      private final RestClient restClient;
 
+     private static final String UBICACIONES_SERVICE_URL = "http://localhost:8092";
+
     public DepositoDTO obtenerDepositoPorId(Integer depositoId) {
         return restClient.get()
-                .uri("http://localhost:8092/depositos/" + depositoId) // cambiar después
+                .uri(UBICACIONES_SERVICE_URL + "/depositos/" + depositoId)
                 .retrieve()
                 .body(DepositoDTO.class);
     }

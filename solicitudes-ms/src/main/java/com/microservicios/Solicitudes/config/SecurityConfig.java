@@ -7,7 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 
 @Configuration
 public class SecurityConfig {
-
+// TODO: COMO FUNCIONA LO DE SEGURIDAD Y LOGGING
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http

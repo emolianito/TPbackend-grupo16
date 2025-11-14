@@ -1,12 +1,8 @@
 package com.microservicios.Solicitudes.controller;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.bind.annotation.*;
 
 import com.microservicios.Solicitudes.dto.request.AsignacionCamionDTO;
 import com.microservicios.Solicitudes.services.TramoService;
@@ -21,6 +17,7 @@ public class TramoController {
 
     private final TramoService tramoService;
 
+    //TODO: PASARLE EL ID DEL CAMION EN LA URL MEJOR??
     @PatchMapping("/{idTramo}/asignacion")
     public ResponseEntity<Void> asignarCamion(
             @PathVariable Integer idTramo,
@@ -41,9 +38,7 @@ public class TramoController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Elimina un tramo por ID
-     */
+    //TODO: NO CREO QUE SEA COHERENTE PERMITIR ELIMINAR TRAMOS
     @DeleteMapping("/{idTramo}")
     public ResponseEntity<Void> eliminarTramo(@PathVariable Integer idTramo) {
         tramoService.eliminarTramo(idTramo);
