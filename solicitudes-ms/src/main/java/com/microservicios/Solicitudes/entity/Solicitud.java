@@ -13,6 +13,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -53,8 +55,8 @@ public class Solicitud {
     @JsonManagedReference
     private Ruta rutaAsignada;
 
-    @Column(nullable = true)
-    @Enumerated(EnumType.STRING)
+    @ManyToOne
+    @JoinColumn(name = "estado_id")
     private EstadoSolicitud estado;
 
     @Column(nullable = true)

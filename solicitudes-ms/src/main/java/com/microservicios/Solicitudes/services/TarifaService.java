@@ -5,17 +5,18 @@ import java.util.List;
 
 import com.microservicios.Solicitudes.entity.Tarifa;
 import com.microservicios.Solicitudes.repository.TarifaRepository;
+
+import lombok.AllArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 @Service
+@AllArgsConstructor
 public class TarifaService {
     
     private final TarifaRepository tarifaRepository;
 
-    public TarifaService(TarifaRepository tarifaRepository) {
-        this.tarifaRepository = tarifaRepository;
-    }
-
+    
     public Tarifa obtenerTarifa(Integer id) {
         return tarifaRepository.findById(id).orElse(null);
     }

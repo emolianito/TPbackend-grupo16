@@ -1,10 +1,17 @@
 package com.microservicios.Solicitudes.entity;
 
+import jakarta.persistence.*;
+import lombok.Data;
 
-public enum EstadoSolicitud {
-    SOLICITADA,
-    PROGRAMADA, 
-    EN_RUTA, 
-    EN_DEPOSITO,
-    FINALIZADA
+@Entity
+@Table(name = "estado_solicitud")
+@Data
+public class EstadoSolicitud {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(nullable = false, unique = true)
+    private String nombre;
 }

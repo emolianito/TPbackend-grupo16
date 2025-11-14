@@ -5,30 +5,34 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.microservicios.Solicitudes.client.ClienteServiceClient;
+import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
 import com.microservicios.Solicitudes.dto.responses.SolicitudDTO;
 import com.microservicios.Solicitudes.entity.CambioEstadoSolicitud;
 import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
+import com.microservicios.Solicitudes.repository.EstadoSolicitudRepository;
 import com.microservicios.Solicitudes.repository.SolicitudRepository;
+
+import lombok.AllArgsConstructor;
 
 import static com.microservicios.Solicitudes.entity.EstadoSolicitud.*;
 
 @Service
+@AllArgsConstructor
 public class SolicitudService {
     private final SolicitudRepository solicitudRepository;
-
-    public SolicitudService(SolicitudRepository solicitudRepository) {
-        this.solicitudRepository = solicitudRepository;
-    }
+    private final ClienteServiceClient clienteServiceClient;
+    private final EstadoSolicitudRepository estadoSolicitudRepository;
     
     public Solicitud createSolicitud(CrearSolicitudDTO dto) {
         Solicitud solicitud = new Solicitud();
         solicitud.setIdCliente(dto.getIdCliente());
         solicitud.setIdContenedor(dto.getIdContenedor());
         solicitud.setFechaSolicitud(LocalDate.now());
-        cambiarEstadoSolicitud(solicitud, SOLICITADA, "EN_ORIGEN");
+        cambiarEstadoSolicitud(solicitud, "SOLICITADA", "EN_ORIGEN");
 
         return solicitudRepository.save(solicitud);
     }
@@ -76,7 +80,7 @@ public class SolicitudService {
                     .sum();
 
             // IMPORTANTE: Actualizar la solicitud con estado FINALIZADA
-        cambiarEstadoSolicitud(solicitud,FINALIZADA, "ENTREGADO");
+        cambiarEstadoSolicitud(solicitud,"FINALIZADA", "ENTREGADO");
         //deben ser calculados
         solicitud.setCostoReal(costoRealTotal);
 
@@ -114,7 +118,10 @@ public class SolicitudService {
         return dto;
     }
 
-    public void cambiarEstadoSolicitud(Solicitud solicitud, EstadoSolicitud nuevoEstado, String estadoContenedor) {
+    public void cambiarEstadoSolicitud(Solicitud solicitud, String nuevoEstado, String estadoContenedor) {
+        EstadoSolicitud estadoSolicitud = estadoSolicitudRepository.findByNombre(nuevoEstado)
+                .orElseThrow(() -> new RuntimeException("Estado de solicitud no encontrado: " + nuevoEstado));
+
         List<CambioEstadoSolicitud> cambiosEstado = solicitud.getCambiosEstado();
         if (!cambiosEstado.isEmpty()) {
             for (CambioEstadoSolicitud cambio : cambiosEstado) {
@@ -126,7 +133,21 @@ public class SolicitudService {
 
         CambioEstadoSolicitud cambio = new CambioEstadoSolicitud(LocalDate.now().atStartOfDay(), nuevoEstado, estadoContenedor);
         solicitud.addCambioEstado(cambio);
-        solicitud.setEstado(nuevoEstado);
+
+    
+        try {
+            ContenedorDTO contenedorDTO = clienteServiceClient.obtenerContenedorPorId(solicitud.getIdContenedor());
+            //HABRIA QUE DEFINIR BIEN LOS ESTADOS DEL CONTENEDOR -------------------------------------------------------------------------------------------------
+            contenedorDTO.setEstadoId(1); //POR AHORA SE SETEA EN 1 (EN ORIGEN)
+
+            clienteServiceClient.actualizarContenedor(contenedorDTO);
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+
+        solicitud.setEstado(estadoSolicitud);
         solicitudRepository.save(solicitud);
     }   
 
