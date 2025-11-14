@@ -212,6 +212,9 @@ public class RutaService {
 
         Solicitud solicitud = solicitudService.getSolicitudEntityById(idSolicitud);
 
+        if (solicitud.getRutaAsignada() != null) {
+            throw new RuntimeException("La solicitud ya tiene una ruta asignada");
+        }
         Ruta rutaSugerida = rutaRepository.findById(idRuta)
                 .orElseThrow(() -> new RuntimeException("Ruta no encontrada"));
 

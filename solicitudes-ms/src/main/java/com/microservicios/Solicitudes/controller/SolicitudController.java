@@ -12,26 +12,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
+import com.microservicios.Solicitudes.dto.responses.CambioEstadoSolicitudDTO;
 import com.microservicios.Solicitudes.dto.responses.SolicitudDTO;
 import com.microservicios.Solicitudes.services.RutaService;
 import com.microservicios.Solicitudes.services.SolicitudService;
 
+import lombok.AllArgsConstructor;
+
 @RestController
 @RequestMapping("/solicitudes")
+@AllArgsConstructor
 public class SolicitudController {
 
     private final SolicitudService solicitudService;
     private final RutaService rutaService;
 
-    public SolicitudController(SolicitudService solicitudService, RutaService rutaService) {
-        this.solicitudService = solicitudService;
-        this.rutaService = rutaService;
-    }
-
-    @GetMapping("/hola")
-    public String hola() {
-        return "Microservicio Solicitudes funcionando ✅";
-    }
 
     @PostMapping
     public SolicitudDTO crearSolicitud(@RequestBody CrearSolicitudDTO dto) {
@@ -65,4 +60,9 @@ public class SolicitudController {
         solicitudService.eliminarSolicitud(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/{id}/seguimiento")
+    public List<CambioEstadoSolicitudDTO> obtenerSeguimientoSolicitud(@PathVariable Integer id) {
+        return solicitudService.getCambiosEstadoSolicitud(id);
+    }   
 }
