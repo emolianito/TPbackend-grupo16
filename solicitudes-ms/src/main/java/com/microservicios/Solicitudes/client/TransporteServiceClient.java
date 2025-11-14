@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TransporteServiceClient {
     private final RestClient restClient;
+    //TODO: DEFINIR BIEN LOS PUERTOS A USAR
     private static final String TRANSPORTE_SERVICE_URL = "http://localhost:8082";
 
     public CamionDTO obtenerCamionPorId(String patente) {

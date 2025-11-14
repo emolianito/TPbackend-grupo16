@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
+import com.microservicio.transporte.entity.Camion;
 import com.microservicio.transporte.service.CamionService;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/camiones")
@@ -27,9 +30,9 @@ public class CamionController {
     }
 
     @PostMapping
-    public CamionDto createCamion (@RequestBody crearCamionDto camion) {
+    public ResponseEntity<CamionDto> createCamion (@RequestBody crearCamionDto camion) {
         CamionDto dto = camionService.crearCamion(camion);
-        return dto;
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
     @GetMapping
@@ -54,17 +57,19 @@ public class CamionController {
     }
 
     @PatchMapping("/{patente}/ocupar")
-    public CamionDto ocuparCamion(@PathVariable String patente) {
-        return camionService.ocuparCamion(patente);
+    public ResponseEntity<CamionDto> ocuparCamion(@PathVariable String patente) {
+        CamionDto dto = camionService.ocuparCamion(patente);
+        return ResponseEntity.status(HttpStatus.OK).body(dto);
     }
     
     @PatchMapping("/{patente}/liberar")
-    public CamionDto liberarCamion(@PathVariable String patente) {
-        return camionService.liberarCamion(patente);
+    public ResponseEntity<CamionDto> liberarCamion(@PathVariable String patente) {
+        CamionDto dto = camionService.liberarCamion(patente);
+        return ResponseEntity.status(HttpStatus.OK).body(dto);
     }
 
     @PostMapping("/{patente}/comprobar-capacidad")
-    public boolean comprobarCapacidad(@PathVariable String patente, @RequestBody Integer idContenedor) {
-        return camionService.comprobarCapacidad(patente, idContenedor);
+    public ResponseEntity<Boolean> comprobarCapacidad(@PathVariable String patente, @RequestBody Integer idContenedor) {
+        return ResponseEntity.ok(camionService.comprobarCapacidad(patente, idContenedor));
     }
 }

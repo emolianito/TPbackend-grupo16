@@ -29,5 +29,7 @@ public class ClienteServiceClient {
                 .retrieve()
                 .body(Void.class);
     }
+
+    //TODO: agregar llamada a los estados del contenedor 
   
 }

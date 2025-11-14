@@ -2,28 +2,25 @@ package com.microservicios.Solicitudes.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+
+import org.springframework.web.bind.annotation.*;
 
 import com.microservicios.Solicitudes.dto.request.GenerarRutasDTO;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.services.RutaService;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @RestController
 @RequestMapping("/rutas")
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class RutaController {
 
     private final RutaService rutaService;
 
+    //TODO: DEFINIR COMO SE CREAN LAS RUTAS SUGERIDAS
     /**
      * Genera rutas sugeridas entre una ubicación origen y destino.
      * Devuelve 3 rutas alternativas con diferentes tramos.
@@ -34,7 +31,7 @@ public class RutaController {
                 dto.getIdUbicacionOrigen(),
                 dto.getIdUbicacionDestino()
         );
-        return ResponseEntity.ok(rutas);
+        return ResponseEntity.status(HttpStatus.CREATED).body(rutas);
     }
 
     /**
