@@ -2,13 +2,9 @@ package com.microservicio.transporte.service;
 
 import org.springframework.stereotype.Service;
 
-import com.microservicio.transporte.client.ClienteServiceClient;
-import com.microservicio.transporte.dto.external.ContenedorDto;
 import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
 import com.microservicio.transporte.repository.CamionRepository;
-
-import lombok.AllArgsConstructor;
 
 import com.microservicio.transporte.entity.Camion;
 import java.util.List;
@@ -18,16 +14,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-@AllArgsConstructor
 public class CamionService {
     private final CamionRepository camionRepository;
-    private final TransportistaService transportistaService;
-    private final ClienteServiceClient clienteServiceClient;
+
+    public CamionService(CamionRepository camionRepository) {
+        this.camionRepository = camionRepository;
+    }
 
     public CamionDto crearCamion(crearCamionDto camion) {
         Camion entity = new Camion();
         entity.setPatente(camion.getPatente());
-        entity.setTransportista(transportistaService.getTransportistaEntity(camion.getDniTransportista()));
+        entity.setDniTransportista(camion.getDniTransportista());
         entity.setCapacidadMaxPeso(camion.getCapacidadMaxPeso());
         entity.setCapacidadMaxVolumen(camion.getCapacidadMaxVolumen());
         entity.setEstaDisponible(true);
@@ -85,22 +82,11 @@ public class CamionService {
         return toDto(updated);
     }
 
-    public boolean comprobarCapacidad(String patente, Integer idContenedor) {
-        Camion camion = camionRepository.findByPatente(patente)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Camión no encontrado"));
-
-        ContenedorDto contenedor = clienteServiceClient.obtenerContenedorPorId(idContenedor);
-
-
-        return contenedor.getPeso().compareTo(camion.getCapacidadMaxPeso()) <= 0 &&
-               contenedor.getVolumen().compareTo(camion.getCapacidadMaxVolumen()) <= 0;
-    }
-
     private CamionDto toDto(Camion c) {
         CamionDto dto = new CamionDto();
-    
+        dto.setId(c.getId());
         dto.setPatente(c.getPatente());
-        dto.setDniTransportista(c.getTransportista().getDni());
+        dto.setDniTransportista(c.getDniTransportista());
         dto.setCapacidadMaxPeso(c.getCapacidadMaxPeso());
         dto.setCapacidadMaxVolumen(c.getCapacidadMaxVolumen());
         dto.setEstaDisponible(c.getEstaDisponible());

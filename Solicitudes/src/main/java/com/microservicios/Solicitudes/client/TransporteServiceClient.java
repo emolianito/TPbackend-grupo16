@@ -5,7 +5,6 @@ import org.springframework.web.client.RestClient;
 
 import com.microservicios.Solicitudes.dto.external.CamionDTO;
 
-import org.springframework.http.MediaType;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -36,16 +35,5 @@ public class TransporteServiceClient {
                 .uri(url)
                 .retrieve()
                 .toBodilessEntity(); 
-    }
-
-    public boolean verificarCapacidad(String patenteCamion, Integer idContenedor) {
-        String url = TRANSPORTE_SERVICE_URL + "/camiones/" + patenteCamion + "/verificar-capacidad/";
-        Boolean resultado = restClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(idContenedor)
-                .retrieve()
-                .body(Boolean.class);
-        return resultado != null && resultado;
     }
 }

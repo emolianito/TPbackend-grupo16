@@ -5,9 +5,11 @@ import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.client.TransporteServiceClient;
+import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.Tramo;
+import com.microservicios.Solicitudes.repository.SolicitudRepository;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -17,23 +19,16 @@ import lombok.RequiredArgsConstructor;
 public class TramoService {
 
     private final TramoRepository tramoRepository;
-    private final SolicitudService solicitudService;
+    private final SolicitudRepository solicitudRepository;
     private final CalculoCostoService calculoCostoService;
     private final TransporteServiceClient transporteServiceClient;
 
     public void asignarCamion(Integer idTramo, String patenteCamion) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
-        
-        Integer idContenedor = tramo.getRuta().getSolicitud().getIdContenedor();
-        
-        if (transporteServiceClient.verificarCapacidad(patenteCamion, idContenedor)) {
-            transporteServiceClient.ocuparCamion(patenteCamion);
-            tramo.setPatenteCamion(patenteCamion);
-            tramoRepository.save(tramo);
-            return;
-        }
-        throw new RuntimeException("El camión no es adecuado para el contenedor del tramo");
+        tramo.setPatenteCamion(patenteCamion);
+        transporteServiceClient.ocuparCamion(patenteCamion);
+        tramoRepository.save(tramo);
     }
 
     public void iniciarTramo(Integer idTramo) {
@@ -42,7 +37,6 @@ public class TramoService {
         tramo.setFechaInicio(LocalDate.now());
         tramoRepository.save(tramo);
     }
-
 
     public Tramo finalizarTramo(Integer idTramo) {
         // Obtener el tramo y validar que existe
@@ -90,11 +84,16 @@ public class TramoService {
                 .allMatch(t -> t.getFechaFin() != null);
 
         if (todosLosTramosFianlizados) {
-            solicitudService.finalizarSolicitud(solicitud.getId());
-        }
+            // Calcular el costo real total de la solicitud
+            Double costoRealTotal = ruta.getTramos().stream()
+                    .mapToDouble(t -> t.getCostoReal() != null ? t.getCostoReal() : 0.0)
+                    .sum();
 
-         transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
-            
+            // IMPORTANTE: Actualizar la solicitud con estado COMPLETADA
+            solicitud.setCostoReal(costoRealTotal);
+            solicitud.setEstado(EstadoSolicitud.COMPLETADA);
+            solicitudRepository.save(solicitud);
+        }
 
         return tramo;
     }

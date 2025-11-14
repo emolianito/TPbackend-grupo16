@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CrearSolicitudDTO {
     
-    private Integer idCliente;
-    private Integer idContenedor;
+    private Long idCliente;
+    private Long idContenedor;
 }

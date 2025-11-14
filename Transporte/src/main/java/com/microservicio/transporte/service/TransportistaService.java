@@ -59,10 +59,5 @@ public class TransportistaService {
         out.setTelefono(t.getTelefono());
         return out;
     }
-    
-    public Transportista getTransportistaEntity(String dni) { 
-        return transportistaRepository.findById(dni)
-            .orElseThrow(() -> new RuntimeException("Transportista no encontrado con DNI: " + dni));
-    }
 
 }

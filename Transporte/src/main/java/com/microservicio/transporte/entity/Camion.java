@@ -2,10 +2,9 @@ package com.microservicio.transporte.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
@@ -19,14 +18,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Camion {
 
-	@Id // Marca este campo como la clave primaria
-    @Column(name = "patente", length = 15, nullable = false, unique = true)
-    private String patente;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY) 
-    // JoinColumn especifica la columna en la tabla 'camion' que será la clave foránea
-    @JoinColumn(name = "dni_transportista", referencedColumnName = "dni", nullable = false)
-    private Transportista transportista;
+	@Column(name = "patente", length = 15, nullable = false, unique = true)
+	private String patente;
+
+	@Column(name = "dni_transportista", length = 20)
+	private String dniTransportista;
 
 	@Column(name = "capacidad_max_peso", precision = 14, scale = 2)
 	private BigDecimal capacidadMaxPeso;

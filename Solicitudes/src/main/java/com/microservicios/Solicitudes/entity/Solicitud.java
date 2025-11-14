@@ -32,8 +32,8 @@ public class Solicitud {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    private Integer idContenedor;
-    private Integer idCliente;
+    private Long idContenedor;
+    private Long idCliente;
 
     @Column(nullable = true)
     private Double costoEstimado;
