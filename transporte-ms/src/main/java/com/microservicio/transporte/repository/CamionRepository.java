@@ -8,5 +8,5 @@ public interface CamionRepository extends JpaRepository<Camion, Long> {
 	java.util.Optional<Camion> findByPatente(String patente);
 	void deleteByPatente(String patente);
 	java.util.List<Camion> findByEstaDisponibleTrue();
-	java.util.List<Camion> findByDniTransportista(String dniTransportista);
+	java.util.List<Camion> findByTransportistaDni(String dniTransportista);
 }
