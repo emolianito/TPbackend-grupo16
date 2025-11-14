@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 
-import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.TipoTramo;
@@ -239,8 +238,8 @@ public class RutaService {
                             return String.format("%02d:%02d", hours, minutes);
                         }).orElse("00:00")
         );
-
-        solicitudService.cambiarEstadoSolicitud(solicitud, com.microservicios.Solicitudes.entity.EstadoSolicitud.PROGRAMADA, "PROGRAMADA");
+        
+        solicitudService.cambiarEstadoSolicitud(solicitud, "PROGRAMADA", "PROGRAMADA");
 
         return solicitudService.actualizarSolicitud(solicitud);
     }

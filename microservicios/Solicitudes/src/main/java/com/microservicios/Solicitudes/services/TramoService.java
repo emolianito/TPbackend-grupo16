@@ -5,8 +5,7 @@ import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.client.TransporteServiceClient;
-import com.microservicios.Solicitudes.entity.Ruta;
-import com.microservicios.Solicitudes.entity.Solicitud;
+
 import com.microservicios.Solicitudes.entity.TipoTramo;
 import com.microservicios.Solicitudes.entity.Tramo;
 import com.microservicios.Solicitudes.repository.TramoRepository;
@@ -47,7 +46,8 @@ public class TramoService {
         TipoTramo tipoTramo = tramo.getTipoTramo();
 
         if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
-            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), com.microservicios.Solicitudes.entity.EstadoSolicitud.EN_RUTA, "EN_CAMINO");
+            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_RUTA", "EN_CAMINO");
+            
         }
 
         tramo.setFechaInicio(LocalDate.now());
@@ -100,7 +100,7 @@ public class TramoService {
             transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
         }
         else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
-            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), com.microservicios.Solicitudes.entity.EstadoSolicitud.EN_DEPOSITO, "EN_DEPOSITO");
+            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_DEPOSITO", "EN_DEPOSITO");
 
         
         }
