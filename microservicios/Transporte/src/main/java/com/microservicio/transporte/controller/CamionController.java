@@ -16,7 +16,6 @@ import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
 import com.microservicio.transporte.service.CamionService;
 
-import jakarta.persistence.criteria.CriteriaBuilder.In;
 
 @RestController
 @RequestMapping("/camiones")
