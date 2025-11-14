@@ -2,9 +2,7 @@
 package tp.backend.clientesms.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import tp.backend.clientesms.dto.ClienteDTO;
 import tp.backend.clientesms.dto.ContenedorDTO;
 import tp.backend.clientesms.dto.EstadoContenedorDTO;
@@ -16,7 +14,6 @@ import tp.backend.clientesms.exception.EstadoContenedorNotFoundException;
 import tp.backend.clientesms.repository.ContenedorRepository;
 import tp.backend.clientesms.repository.EstadoContenedorRepository;
 import tp.backend.clientesms.repository.ClienteRepository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
