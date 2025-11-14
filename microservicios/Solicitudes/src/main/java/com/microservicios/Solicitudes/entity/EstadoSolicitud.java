@@ -5,5 +5,6 @@ public enum EstadoSolicitud {
     SOLICITADA,
     PROGRAMADA, 
     EN_RUTA, 
+    EN_DEPOSITO,
     FINALIZADA
 }

@@ -7,9 +7,13 @@ import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
 import com.microservicios.Solicitudes.dto.responses.SolicitudDTO;
+import com.microservicios.Solicitudes.entity.CambioEstadoSolicitud;
+import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.repository.SolicitudRepository;
+
+import static com.microservicios.Solicitudes.entity.EstadoSolicitud.*;
 
 @Service
 public class SolicitudService {
@@ -23,8 +27,8 @@ public class SolicitudService {
         Solicitud solicitud = new Solicitud();
         solicitud.setIdCliente(dto.getIdCliente());
         solicitud.setIdContenedor(dto.getIdContenedor());
-        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.SOLICITADA);
         solicitud.setFechaSolicitud(LocalDate.now());
+        cambiarEstadoSolicitud(solicitud, SOLICITADA, "EN_ORIGEN");
 
         return solicitudRepository.save(solicitud);
     }
@@ -41,6 +45,7 @@ public class SolicitudService {
                 .toList();
     }
 
+    /* 
     public Solicitud finalizarSolicitud(Solicitud solicitud) {
         solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.FINALIZADA);
         //deben ser calculados
@@ -49,6 +54,7 @@ public class SolicitudService {
 
         return solicitudRepository.save(solicitud);
     }
+    */
 
     /**
      * Elimina una solicitud por ID
@@ -59,6 +65,7 @@ public class SolicitudService {
         solicitudRepository.delete(solicitud);
     }
 
+    //PODRIA PASAR DIRECTAMENTE LA ENTIDAD SOLICITUD
     public SolicitudDTO finalizarSolicitud(Integer idSolicitud) {
         Solicitud solicitud = solicitudRepository.findById(idSolicitud)
                 .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
@@ -69,10 +76,11 @@ public class SolicitudService {
                     .sum();
 
             // IMPORTANTE: Actualizar la solicitud con estado FINALIZADA
-        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.FINALIZADA);
+        cambiarEstadoSolicitud(solicitud,FINALIZADA, "ENTREGADO");
         //deben ser calculados
         solicitud.setCostoReal(costoRealTotal);
-        //debera calcular tempo real
+
+        //:TODO debera calcular tempo real
         solicitud.setTiempoReal("2 horas");
 
         Solicitud solicitudFinalizada = solicitudRepository.save(solicitud);
@@ -105,4 +113,22 @@ public class SolicitudService {
         // Las rutasSugeridas NO se incluyen en el DTO
         return dto;
     }
+
+    public void cambiarEstadoSolicitud(Solicitud solicitud, EstadoSolicitud nuevoEstado, String estadoContenedor) {
+        List<CambioEstadoSolicitud> cambiosEstado = solicitud.getCambiosEstado();
+        if (!cambiosEstado.isEmpty()) {
+            for (CambioEstadoSolicitud cambio : cambiosEstado) {
+                if (cambio.getFechaHoraFin() == null) {
+                    cambio.setFechaHoraFin(LocalDate.now().atStartOfDay());
+                }
+            }
+        }
+
+        CambioEstadoSolicitud cambio = new CambioEstadoSolicitud(LocalDate.now().atStartOfDay(), nuevoEstado, estadoContenedor);
+        solicitud.addCambioEstado(cambio);
+        solicitud.setEstado(nuevoEstado);
+        solicitudRepository.save(solicitud);
+    }   
+
+
 }

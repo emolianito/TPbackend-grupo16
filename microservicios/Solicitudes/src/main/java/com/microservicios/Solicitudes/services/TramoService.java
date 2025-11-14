@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.microservicios.Solicitudes.client.TransporteServiceClient;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
+import com.microservicios.Solicitudes.entity.TipoTramo;
 import com.microservicios.Solicitudes.entity.Tramo;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 
@@ -39,6 +40,16 @@ public class TramoService {
     public void iniciarTramo(Integer idTramo) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
+
+        if (tramo.getPatenteCamion() == null) {
+            throw new RuntimeException("No se puede iniciar un tramo sin camión asignado");
+        }
+        TipoTramo tipoTramo = tramo.getTipoTramo();
+
+        if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
+            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), com.microservicios.Solicitudes.entity.EstadoSolicitud.EN_RUTA, "EN_CAMINO");
+        }
+
         tramo.setFechaInicio(LocalDate.now());
         tramoRepository.save(tramo);
     }
@@ -81,27 +92,23 @@ public class TramoService {
         // Guardar el tramo actualizado
         tramoRepository.save(tramo);
 
-        // Obtener la ruta asociada
-        Ruta ruta = tramo.getRuta();
-        Solicitud solicitud = ruta.getSolicitud();
-        
-        // Verificar si todos los tramos de la ruta están finalizados
-        boolean todosLosTramosFianlizados = ruta.getTramos().stream()
-                .allMatch(t -> t.getFechaFin() != null);
 
-        if (todosLosTramosFianlizados) {
-            solicitudService.finalizarSolicitud(solicitud.getId());
+        TipoTramo tipoTramo = tramo.getTipoTramo();
+
+        if (tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
+            solicitudService.finalizarSolicitud(tramo.getRuta().getSolicitud().getId());
+            transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
         }
+        else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
+            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), com.microservicios.Solicitudes.entity.EstadoSolicitud.EN_DEPOSITO, "EN_DEPOSITO");
 
-         transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
-            
+        
+        }
 
         return tramo;
     }
 
-    /**
-     * Elimina un tramo por ID
-     */
+    
     public void eliminarTramo(Integer idTramo) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));

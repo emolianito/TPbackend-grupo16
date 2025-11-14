@@ -148,7 +148,7 @@ public class RutaService {
         tramo2.setIdUbicacionOrigen(parada1);
         tramo2.setIdUbicacionDestino(parada2);
         tramo2.setPatenteCamion("5678-DEF");
-        tramo2.setTipoTramo(TipoTramo.DESSTINO_DEPOSITO);
+        tramo2.setTipoTramo(TipoTramo.DEPOSITO_DEPOSITO);
         tramo2.setCostoAproximado(10000.0);
         tramo2.setTiempo("01:00");
         tramoRepository.save(tramo2);
@@ -220,8 +220,6 @@ public class RutaService {
         Ruta rutaAsignada = clonarRuta(rutaSugerida, solicitud);
 
         solicitud.setRutaAsignada(rutaAsignada);
-        solicitud.setEstado(EstadoSolicitud.EN_RUTA);
-
         double costoEstimado = calculoCostoService.calcularCostoEstimado(rutaAsignada);
         solicitud.setCostoEstimado(costoEstimado);
 
@@ -241,6 +239,8 @@ public class RutaService {
                             return String.format("%02d:%02d", hours, minutes);
                         }).orElse("00:00")
         );
+
+        solicitudService.cambiarEstadoSolicitud(solicitud, com.microservicios.Solicitudes.entity.EstadoSolicitud.PROGRAMADA, "PROGRAMADA");
 
         return solicitudService.actualizarSolicitud(solicitud);
     }
