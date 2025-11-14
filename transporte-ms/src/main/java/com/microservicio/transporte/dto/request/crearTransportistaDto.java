@@ -1,15 +1,14 @@
-package tp.backend.clientesms.entity;
+package com.microservicio.transporte.dto.request;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "clientes")
-@Data @AllArgsConstructor @NoArgsConstructor
-public class Cliente {
-    @Id
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class crearTransportistaDto {
+
     private String dni;
     private String nombre;
     private String apellido;
