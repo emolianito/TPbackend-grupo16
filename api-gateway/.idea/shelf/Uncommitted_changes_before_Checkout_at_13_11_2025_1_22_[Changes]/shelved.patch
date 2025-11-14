@@ -1,0 +1,17 @@
+Index: src/main/java/tp/backend/gateway/config/GatewayRoutesConfig.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package tp.backend.gateway.config;\r\n\r\nimport org.springframework.context.annotation.Bean;\r\nimport org.springframework.context.annotation.Configuration;\r\nimport org.springframework.web.servlet.function.RouterFunction;\r\nimport org.springframework.web.servlet.function.ServerResponse;\r\n\r\nimport static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.uri;\r\nimport static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;\r\nimport static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;\r\nimport static org.springframework.web.servlet.function.RequestPredicates.path;\r\n\r\n@Configuration\r\npublic class GatewayRoutesConfig {\r\n\r\n    // Clientes + contenedores (microservicio en 8081)\r\n    @Bean\r\n    public RouterFunction<ServerResponse> gatewayRoutes() {\r\n\r\n        String backendBaseUrl = \"http://localhost:8081\";\r\n\r\n        return route(\"clientes-contenedores-route\")\r\n                .route(path(\"/api/clientes/**\"), http())\r\n                .route(path(\"/api/contenedores/**\"), http())\r\n                .before(uri(backendBaseUrl))\r\n                .build();\r\n    }\r\n\r\n    // Ubicaciones (microservicio en 8083)\r\n    @Bean\r\n    public RouterFunction<ServerResponse> ubicacionesRoutes() {\r\n        return route(\"ubicaciones-route\")\r\n                .route(path(\"/ubicaciones/depositos/**\"), http())\r\n                .route(path(\"/ubicaciones/localizaciones/**\"), http())\r\n                .before(uri(\"http://localhost:8082\"))\r\n                .build();\r\n    }\r\n\r\n    @Bean\r\n    public RouterFunction<ServerResponse> solicitudesRoutes() {\r\n        return route(\"solicitudes-route\")\r\n                // Rutas del microservicio de Solicitudes\r\n                .route(path(\"/rutas/**\"), http())                 // RutaController\r\n                .route(path(\"/solicitudes/**\"), http())           // SolicitudController + TramoController\r\n                .route(path(\"/tarifas/**\"), http())               // TarifaController\r\n\r\n                // Se envían al microservicio real en puerto 8083\r\n                .before(uri(\"http://localhost:8083\"))\r\n                .build();\r\n    }\r\n}
+===================================================================
+diff --git a/src/main/java/tp/backend/gateway/config/GatewayRoutesConfig.java b/src/main/java/tp/backend/gateway/config/GatewayRoutesConfig.java
+--- a/src/main/java/tp/backend/gateway/config/GatewayRoutesConfig.java	(revision 8516ef8bea0c4ad94b05e7a5c1254ab8d25f56fe)
++++ b/src/main/java/tp/backend/gateway/config/GatewayRoutesConfig.java	(date 1763007681774)
+@@ -26,7 +26,7 @@
+                 .build();
+     }
+ 
+-    // Ubicaciones (microservicio en 8083)
++    // Ubicaciones (microservicio en 8082)
+     @Bean
+     public RouterFunction<ServerResponse> ubicacionesRoutes() {
+         return route("ubicaciones-route")
