@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: Ubicaciones-Microservicio
+
+  datasource:
+    url: jdbc:postgresql://aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require
+    username: postgres.nxlqnoahtsmvujhuzkwi
+    password: grupo16
+    driver-class-name: org.postgresql.Driver
+   
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/bda-realm
+
+server:
+  port: 8082
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+google:
+  maps:
+    apikey: AIzaSyCKI8-srVChwYKMKiZbuHMXVcAntVceUZQ
+
+microservicio:
+  contenedores:
+    url: http://localhost:8081/api/contenedores
