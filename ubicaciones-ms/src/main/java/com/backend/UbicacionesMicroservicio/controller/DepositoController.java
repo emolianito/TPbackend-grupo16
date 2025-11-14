@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.backend.UbicacionesMicroservicio.dto.ContenedorDTO;
 import com.backend.UbicacionesMicroservicio.dto.DepositoRequest;
 import com.backend.UbicacionesMicroservicio.entity.Deposito;
 import com.backend.UbicacionesMicroservicio.service.ContenedorClientService;
@@ -61,15 +62,8 @@ public class DepositoController {
   }
 
   @GetMapping("/{id}/contenedores")
-  public ResponseEntity<List<Object>> getContenedoresByDeposito(@PathVariable int id) {
-    // Verificar que el depósito existe
-    Deposito deposito = depositoService.getDepositoById(id);
-    if (deposito == null) {
-      return ResponseEntity.notFound().build();
-    }
-
-    // Obtener contenedores del otro microservicio
-    List<Object> contenedores = contenedorClientService.obtenerContenedoresPorDeposito(id);
+  public ResponseEntity<List<ContenedorDTO>> obtenerContenedoresDelDeposito(@PathVariable int id) {
+    List<ContenedorDTO> contenedores = contenedorClientService.getContenedoresByDeposito(id);
     return ResponseEntity.ok(contenedores);
   }
 

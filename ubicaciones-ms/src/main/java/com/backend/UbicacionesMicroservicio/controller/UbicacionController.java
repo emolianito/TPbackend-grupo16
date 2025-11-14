@@ -39,7 +39,6 @@ public class UbicacionController {
   @PostMapping("/desde-direccion")
   public ResponseEntity<?> createUbicacionDesdeDireccion(@RequestParam String direccion) {
     try {
-      String direccionLimpia = direccion.trim().replaceAll("\\s+", " ");
       GeocodingService.Coordenadas coords = geocodingService.obtenerCoordenadas(direccion);
 
       Ubicacion ubicacion = new Ubicacion();
