@@ -74,7 +74,7 @@ public class TramoService {
             // Si falla el cálculo, loguear pero NO fallar
             System.err.println("Error calculando costo real del tramo " + idTramo + ": " + e.getMessage());
             // Usar el costo aproximado como fallback
-            tramo.setCostoReal(tramo.getCostoAproximado());
+            tramo.setCostoReal(0.0);
         }
 
     }

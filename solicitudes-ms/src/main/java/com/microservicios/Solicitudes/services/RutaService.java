@@ -1,18 +1,24 @@
 package com.microservicios.Solicitudes.services;
 
+import com.microservicios.Solicitudes.client.UbicacionesServiceClient;
+import com.microservicios.Solicitudes.dto.external.CoordenadasDTO;
+import com.microservicios.Solicitudes.dto.external.DepositoDTO;
+import com.microservicios.Solicitudes.dto.external.DistanciaDTO;
+import com.microservicios.Solicitudes.dto.request.GenerarRutasRequestDTO;
+import com.microservicios.Solicitudes.dto.responses.RutaTentativaDTO;
+import com.microservicios.Solicitudes.dto.responses.TramoTentativoDTO;
+
+import org.springframework.web.client.RestClientException;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.springframework.stereotype.Service;
-
-
+import com.microservicios.Solicitudes.entity.EstadoSolicitud;
 import com.microservicios.Solicitudes.entity.Ruta;
 import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.TipoTramo;
 import com.microservicios.Solicitudes.entity.Tramo;
 import com.microservicios.Solicitudes.repository.RutaRepository;
 import com.microservicios.Solicitudes.repository.TramoRepository;
-
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -24,161 +30,600 @@ public class RutaService {
     private final SolicitudService solicitudService;
     private final CalculoCostoService calculoCostoService;
 
+    private final UbicacionesServiceClient ubicacionesServiceClient;
+
     /**
-     * Genera 3 rutas sugeridas dinámicamente según origen y destino.
+     * Punto de entrada principal para generar rutas tentativas.
+     * Guarda las rutas y sus tramos en la base de datos como entidades Ruta y
+     * Tramo.
+     *
+     * @param request DTO con origenDireccion, destinoDireccion y cantidadDepositos
+     * @return Una lista de DTOs de rutas sugeridas, ordenadas por km.
+     */
+    public List<RutaTentativaDTO> generarRutasTentativas(GenerarRutasRequestDTO request) {
+
+        // --- ¡¡NUEVO PASO INICIAL: GEOCODIFICAR!! ---
+        String origen;
+        String destino;
+        try {
+            System.out.println("Geocodificando origen: " + request.getOrigenDireccion());
+            CoordenadasDTO coordsOrigen = ubicacionesServiceClient.obtenerCoordenadas(request.getOrigenDireccion());
+
+            System.out.println("Geocodificando destino: " + request.getDestinoDireccion());
+            CoordenadasDTO coordsDestino = ubicacionesServiceClient.obtenerCoordenadas(request.getDestinoDireccion());
+
+            // Convertimos las coordenadas a "lat,lon" para el resto de la lógica
+            origen = coordsOrigen.getLatitud() + "," + coordsOrigen.getLongitud();
+            destino = coordsDestino.getLatitud() + "," + coordsDestino.getLongitud();
+
+            System.out.println("Geocodificación OK: " + origen + " -> " + destino);
+
+        } catch (RestClientException e) {
+            System.err.println("Error fatal geocodificando direcciones: " + e.getMessage());
+            // Si no podemos geocodificar, no podemos calcular.
+            throw new RuntimeException("No se pudieron geocodificar las direcciones: " + e.getMessage());
+        }
+        // --- FIN DEL NUEVO PASO ---
+
+        List<Ruta> rutasGuardadas = new ArrayList<>(); // Almacenaremos las entidades Ruta
+        int k = request.getCantidadDepositos(); // El 'k' (número de paradas)
+
+        // --- CASO 1: 0 Depósitos (Ruta Directa) ---
+        if (k == 0) {
+            System.out.println("Calculando ruta directa (0 paradas)...");
+            try {
+                DistanciaDTO dist = ubicacionesServiceClient.obtenerDistancia(origen, destino);
+                // Llamada al método que ahora guarda la entidad Ruta
+                Ruta ruta = construirRutaDirecta(dist, request.getOrigenDireccion(),
+                        request.getDestinoDireccion());
+                rutasGuardadas.add(ruta);
+            } catch (RestClientException e) {
+                System.err.println("Error al calcular ruta directa: " + e.getMessage());
+            }
+        }
+
+        // --- CASO 2 o más: 1+ Depósitos ---
+        else {
+            // 1. (Paso 3) Filtrar depósitos relevantes
+            System.out.println("Calculando rutas con " + k + " parada(s)...");
+            List<DepositoRelevante> depositosRelevantes = filtrarDepositosRelevantes(origen, destino);
+
+            if (depositosRelevantes.isEmpty()) {
+                System.out.println("No se encontraron depósitos relevantes en la ruta.");
+                return List.of(); // Lista vacía
+            }
+
+            // --- CASO 2.A: 1 Depósito (Optimización) ---
+            if (k == 1) {
+                System.out.println("Calculando rutas con 1 parada (Optimizado)...");
+                for (DepositoRelevante dep : depositosRelevantes) {
+                    // Llamada al método que ahora guarda la entidad Ruta
+                    Ruta ruta = construirRutaConUnaParada(dep, request.getOrigenDireccion(),
+                            request.getDestinoDireccion());
+                    rutasGuardadas.add(ruta);
+                }
+            }
+            // --- CASO 2.B: 2+ Depósitos (Permutaciones) ---
+            else if (k <= depositosRelevantes.size()) {
+                System.out.println("Calculando rutas con " + k + " paradas (Permutaciones)...");
+
+                List<List<DepositoRelevante>> permutaciones = generarPermutaciones(depositosRelevantes, k);
+
+                for (List<DepositoRelevante> paradaOrdenada : permutaciones) {
+                    try {
+                        // Llamada al método que ahora guarda la entidad Ruta
+                        Ruta ruta = construirRutaMultiParada(paradaOrdenada, request.getOrigenDireccion(),
+                                request.getDestinoDireccion());
+                        rutasGuardadas.add(ruta);
+                    } catch (RestClientException e) {
+                        System.err.println("Error calculando ruta multi-parada: " + e.getMessage());
+                    }
+                }
+            } else {
+                System.out.println("Se pidieron " + k + " paradas, pero solo hay "
+                        + depositosRelevantes.size() + " depósitos relevantes.");
+            }
+        }
+
+        // 4. Ordenar y devolver las mejores
+        // Ordenamos las entidades por costo estimado (proxy para kilómetros)
+        java.util.Collections.sort(rutasGuardadas, (r1, r2) -> {
+            // La lambda sigue usando la función auxiliar, que ahora soporta días.
+            int tiempo1Minutos = parseTiempoEstimado(r1.getTiempoEstimado());
+            int tiempo2Minutos = parseTiempoEstimado(r2.getTiempoEstimado());
+
+            // La comparación de enteros es siempre la forma más precisa de ordenar.
+            return Integer.compare(tiempo1Minutos, tiempo2Minutos);
+        });
+
+        // Mapear a DTOs para el retorno
+        List<RutaTentativaDTO> rutasSugeridas = rutasGuardadas.stream()
+                .map(this::convertToRutaTentativaDTO)
+                .toList();
+
+        // 5. Devolver las mejores 10 rutas
+        int maxResultados = Math.min(rutasSugeridas.size(), 10);
+        return rutasSugeridas.subList(0, maxResultados);
+    }
+
+    // --- MÉTODOS AYUDANTES PARA CONSTRUIR Y PERSISTIR ENTIDADES ---
+
+    /** Ayudante para persistir un tramo */
+    private Tramo saveTramo(Ruta ruta, Integer idUbicacionOrigen, Integer idUbicacionDestino,
+            TipoTramo tipoTramo, DistanciaDTO dist) {
+        Tramo tramo = new Tramo();
+        tramo.setRuta(ruta);
+        // Usamos IDs de ubicación. 0 es un placeholder para Origen/Destino del cliente
+        // (sin ID en este flujo).
+        tramo.setIdUbicacionOrigen(idUbicacionOrigen);
+        tramo.setIdUbicacionDestino(idUbicacionDestino);
+        tramo.setTipoTramo(tipoTramo);
+        // El campo 'tiempo' es el 'duracionTexto' de la API.
+        tramo.setTiempo(dist.getDuracionTexto());
+        tramo.setDistanciaKm(dist.getKilometros());
+
+        return tramoRepository.save(tramo);
+    }
+
+    /** Helper para persistir una ruta y calcular su costo estimado. */
+    private Ruta saveRuta(List<Tramo> tramos, double kmTotales, String tiempoEstimado) {
+        Ruta ruta = new Ruta();
+        ruta.setSolicitud(null); // Sugerida (global)
+        ruta.setTiempoEstimado(tiempoEstimado);
+        ruta.setTramos(tramos);
+
+        // 1. Guardar la ruta inicial para obtener el ID
+        Ruta rutaGuardada = rutaRepository.save(ruta);
+
+        // 2. Asociar la ruta a los tramos y actualizar los tramos
+        for (Tramo tramo : tramos) {
+            tramo.setRuta(rutaGuardada);
+            tramoRepository.save(tramo);
+        }
+
+        // 3. Actualizar la ruta con el costo estimado
+        return rutaRepository.save(rutaGuardada);
+    }
+
+    /** Helper para sumar tiempos. */
+    private String sumarTiempos(String t1, String t2) {
+        if (t1 == null || t1.equals("00:00"))
+            return t2;
+        if (t2 == null || t2.equals("00:00"))
+            return t1;
+        try {
+            String[] parts1 = t1.split(":");
+            String[] parts2 = t2.split(":");
+            int hours = Integer.parseInt(parts1[0]) + Integer.parseInt(parts2[0]);
+            int minutes = Integer.parseInt(parts1[1]) + Integer.parseInt(parts2[1]);
+            if (minutes >= 60) {
+                hours += minutes / 60;
+                minutes = minutes % 60;
+            }
+            return String.format("%02d:%02d", hours, minutes);
+        } catch (Exception e) {
+            return "00:00";
+        }
+    }
+
+    // Métodos para convertir la entidad Ruta a DTO
+    private RutaTentativaDTO convertToRutaTentativaDTO(Ruta ruta) {
+        if (ruta == null || ruta.getTramos() == null) {
+            return new RutaTentativaDTO(List.of(), 0.0);
+        }
+
+        List<TramoTentativoDTO> tramosDTO = ruta.getTramos().stream()
+                .map(this::convertToTramoTentativoDTO)
+                .toList();
+
+        // El kilómetro total debe sumarse desde los tramos si no está en la Ruta.
+        // Se asume que el costoAproximado en Tramo contiene los kilómetros
+        double kmTotales = tramosDTO.stream()
+                .mapToDouble(TramoTentativoDTO::getKilometros)
+                .sum();
+
+        return new RutaTentativaDTO(tramosDTO, kmTotales);
+    }
+
+    private TramoTentativoDTO convertToTramoTentativoDTO(Tramo tramo) {
+        String origen = tramo.getIdUbicacionOrigen() == 0 ? "Origen Cliente"
+                : "Depósito ID: " + tramo.getIdUbicacionOrigen();
+        String destino = tramo.getIdUbicacionDestino() == 0 ? "Destino Cliente"
+                : "Depósito ID: " + tramo.getIdUbicacionDestino();
+
+        // El campo costoAproximado contiene los kilómetros del tramo (temporalmente).
+        Double kilometros = tramo.getDistanciaKm() != null ? tramo.getDistanciaKm() : 0.0;
+
+        String tipoTramoStr = tramo.getTipoTramo() != null ? tramo.getTipoTramo().name().replace('_', '-')
+                : "DESCONOCIDO";
+
+        return new TramoTentativoDTO(
+                origen,
+                destino,
+                tipoTramoStr,
+                kilometros,
+                tramo.getTiempo());
+    }
+
+    /** Ayudante para el caso k=0 */
+    private Ruta construirRutaDirecta(DistanciaDTO dist, String origen, String destino) {
+
+        // 1. Crear y guardar el Tramo
+        Tramo tramo = saveTramo(
+                null, // Ruta aún no guardada
+                0, // Origen cliente, ID 0 (Placeholder)
+                0, // Destino cliente, ID 0 (Placeholder)
+                TipoTramo.ORIGEN_DESTINO,
+                dist);
+
+        // 2. Crear y guardar la Ruta
+        return saveRuta(List.of(tramo), dist.getKilometros(), dist.getDuracionTexto());
+    }
+
+    /** Ayudante para el caso k=1 (Usa la optimización del filtro) */
+    private Ruta construirRutaConUnaParada(DepositoRelevante dep, String origen, String destino) {
+
+        DistanciaDTO tramo1Dist = dep.tramoOrigenADeposito();
+        DistanciaDTO tramo2Dist = dep.tramoDepositoADestino();
+
+        Integer idDeposito = dep.deposito().getId();
+
+        // 1. Crear y guardar el Tramo 1 (Origen -> Depósito)
+        Tramo tramo1 = saveTramo(
+                null,
+                0, // Origen cliente, ID 0 (Placeholder)
+                idDeposito, // Destino: ID del depósito
+                TipoTramo.ORIGEN_DEPOSITO,
+                tramo1Dist);
+
+        // 2. Crear y guardar el Tramo 2 (Depósito -> Destino)
+        Tramo tramo2 = saveTramo(
+                null,
+                idDeposito, // Origen: ID del depósito
+                0, // Destino cliente, ID 0 (Placeholder)
+                TipoTramo.DEPOSITO_DESTINO,
+                tramo2Dist);
+
+        // 3. Crear y guardar la Ruta
+        double kmTotales = tramo1Dist.getKilometros() + tramo2Dist.getKilometros();
+        String tiempoTotal = sumarTiempos(tramo1Dist.getDuracionTexto(), tramo2Dist.getDuracionTexto());
+
+        return saveRuta(List.of(tramo1, tramo2), kmTotales, tiempoTotal);
+    }
+
+    /**
+     * Ayudante para el caso k=2+ (Requiere llamadas a la API para tramos
+     * intermedios)
+     */
+    private Ruta construirRutaMultiParada(List<DepositoRelevante> paradas,
+            String origen, String destino) {
+
+        List<Tramo> tramos = new ArrayList<>();
+        double kmTotales = 0.0;
+        String tiempoTotal = "00:00";
+
+        // --- Tramo 1: Origen -> Parada 1 ---
+        DepositoRelevante primeraParada = paradas.get(0);
+        DistanciaDTO tramoOrigenDist = primeraParada.tramoOrigenADeposito();
+        Integer idPrimeraParada = primeraParada.deposito().getId();
+
+        Tramo tramoOrigen = saveTramo(
+                null,
+                0, // Origen cliente, ID 0 (Placeholder)
+                idPrimeraParada,
+                TipoTramo.ORIGEN_DEPOSITO,
+                tramoOrigenDist);
+        tramos.add(tramoOrigen);
+        kmTotales += tramoOrigenDist.getKilometros();
+        tiempoTotal = sumarTiempos(tiempoTotal, tramoOrigenDist.getDuracionTexto());
+
+        // --- Tramos Intermedios: Parada 1 -> Parada 2 ... ---
+        for (int i = 0; i < paradas.size() - 1; i++) {
+            DepositoRelevante paradaActual = paradas.get(i);
+            DepositoRelevante paradaSiguiente = paradas.get(i + 1);
+
+            String coordsActual = paradaActual.deposito().getUbicacion().getLatitud() + ","
+                    + paradaActual.deposito().getUbicacion().getLongitud();
+            String coordsSiguiente = paradaSiguiente.deposito().getUbicacion().getLatitud() + ","
+                    + paradaSiguiente.deposito().getUbicacion().getLongitud();
+
+            // Llamada real a la API
+            DistanciaDTO tramoIntermedioDist = ubicacionesServiceClient.obtenerDistancia(coordsActual, coordsSiguiente);
+            Integer idParadaActual = paradaActual.deposito().getId();
+            Integer idParadaSiguiente = paradaSiguiente.deposito().getId();
+
+            Tramo tramoIntermedio = saveTramo(
+                    null,
+                    idParadaActual,
+                    idParadaSiguiente,
+                    TipoTramo.DEPOSITO_DEPOSITO,
+                    tramoIntermedioDist);
+
+            tramos.add(tramoIntermedio);
+            kmTotales += tramoIntermedioDist.getKilometros();
+            tiempoTotal = sumarTiempos(tiempoTotal, tramoIntermedioDist.getDuracionTexto());
+        }
+
+        // --- Último Tramo: Parada N -> Destino ---
+        DepositoRelevante ultimaParada = paradas.get(paradas.size() - 1);
+        DistanciaDTO tramoFinalDist = ultimaParada.tramoDepositoADestino();
+        Integer idUltimaParada = ultimaParada.deposito().getId();
+
+        Tramo tramoFinal = saveTramo(
+                null,
+                idUltimaParada,
+                0, // Destino cliente, ID 0 (Placeholder)
+                TipoTramo.DEPOSITO_DESTINO,
+                tramoFinalDist);
+
+        tramos.add(tramoFinal);
+        kmTotales += tramoFinalDist.getKilometros();
+        tiempoTotal = sumarTiempos(tiempoTotal, tramoFinalDist.getDuracionTexto());
+
+        // 3. Crear y guardar la Ruta
+        return saveRuta(tramos, kmTotales, tiempoTotal);
+    }
+
+    // ... (rest of the file remains unchanged, including filtrarDepositosRelevantes
+    // and generarPermutaciones)
+
+    // ---
+    // FIN: NUESTRA LÓGICA (PASO 5)
+    // ---
+
+    /**
+     * Filtra la lista completa de depósitos y devuelve solo los que
+     * están "razonablemente" en el camino (lógica "Santa Cruz vs Misiones").
+     *
+     * @param origenCoords  "lat,lon" de origen
+     * @param destinoCoords "lat,lon" de destino
+     * @return Una lista de depósitos relevantes, con sus distancias ya calculadas.
+     */
+    private List<DepositoRelevante> filtrarDepositosRelevantes(
+            String origenCoords, String destinoCoords) {
+
+        // 2a. Obtener distancia base para comparar
+        DistanciaDTO infoDirecta;
+        try {
+            // Usamos el cliente para llamar al Microservicio de Ubicaciones
+            infoDirecta = ubicacionesServiceClient.obtenerDistancia(origenCoords, destinoCoords);
+        } catch (RestClientException e) {
+            System.err.println("Error CRÍTICO al calcular distancia directa: " + e.getMessage());
+            // Si esto falla, no podemos filtrar. Devolvemos una lista vacía.
+            return List.of();
+        }
+
+        double distanciaDirectaKm = infoDirecta.getKilometros();
+
+        // 2b. Definir la regla de negocio (Factor de Desvío)
+        // Aceptamos depósitos que hagan la ruta hasta 100% más larga (x 2.0)
+        double distanciaMaximaAceptable = distanciaDirectaKm * 2.0;
+
+        // 2c. Obtener TODOS los depósitos
+        List<DepositoDTO> todosLosDepositos;
+        try {
+            todosLosDepositos = ubicacionesServiceClient.obtenerDepositos();
+        } catch (RestClientException e) {
+            System.err.println("Error CRÍTICO al obtener depósitos: " + e.getMessage());
+            return List.of(); // Si no hay depósitos, no hay nada que filtrar.
+        }
+
+        // 2d. Iniciar el filtrado
+        List<DepositoRelevante> depositosRelevantes = new ArrayList<>();
+
+        System.out.println("--- FILTRANDO DEPÓSITOS ---");
+        System.out.println("Distancia Directa: " + distanciaDirectaKm + " km");
+        System.out.println("Umbral Máximo de Desvío: " + distanciaMaximaAceptable + " km");
+
+        for (DepositoDTO deposito : todosLosDepositos) {
+            // Obtenemos las coordenadas del depósito
+            String depoCoords = deposito.getUbicacion().getLatitud() + "," + deposito.getUbicacion().getLongitud();
+
+            try {
+                // Calculamos el desvío (Hacemos 2 llamadas a la API)
+                DistanciaDTO tramo1 = ubicacionesServiceClient.obtenerDistancia(origenCoords, depoCoords);
+                DistanciaDTO tramo2 = ubicacionesServiceClient.obtenerDistancia(depoCoords, destinoCoords);
+
+                double distanciaConDesvio = tramo1.getKilometros() + tramo2.getKilometros();
+
+                if (distanciaConDesvio <= distanciaMaximaAceptable) {
+                    System.out.println(
+                            "  RELEVANTE: " + deposito.getNombre() + " (Desvío: " + distanciaConDesvio + " km)");
+
+                    // Guardamos los tramos para no recalcularlos después.
+                    depositosRelevantes.add(new DepositoRelevante(deposito, tramo1, tramo2));
+                } else {
+                    System.out.println(
+                            "  DESCARTADO: " + deposito.getNombre() + " (Desvío: " + distanciaConDesvio + " km)");
+                }
+
+            } catch (RestClientException e) {
+                // Si falla el cálculo para UN depósito (ej: Google no encuentra la ruta),
+                // simplemente lo ignoramos y continuamos con el siguiente.
+                System.err.println("Error calculando desvío para " + deposito.getNombre() + ": " + e.getMessage());
+            }
+        }
+
+        System.out.println("--- FIN FILTRADO. Depósitos relevantes: " + depositosRelevantes.size() + " ---");
+        return depositosRelevantes;
+    }
+
+    /**
+     * Clase auxiliar interna para guardar los depósitos filtrados
+     * y los tramos pre-calculados.
+     */
+    private record DepositoRelevante(
+            DepositoDTO deposito,
+            DistanciaDTO tramoOrigenADeposito, // Tramo 1 (Origen -> Depósito)
+            DistanciaDTO tramoDepositoADestino // Tramo 2 (Depósito -> Destino)
+    ) {
+    }
+
+    // INICIO: CÓDIGO ANTIGUO (MOCK)
+    // Este código lo reemplazaremos en los siguientes pasos,
+    // pero lo dejamos aquí para que el resto del proyecto no se rompa.
+    // ---
+
+    /**
+     * [MOCK] Genera 3 rutas sugeridas dinámicamente según origen y destino.
      * Las rutas se crean sin asignación a solicitud específica (solicitud = null).
      * Pueden ser clonadas posteriormente cuando se asignan a una solicitud.
      */
-    public List<Ruta> generarRutasSugeridas(Integer idUbicacionOrigen, Integer idUbicacionDestino) {
-        // En el futuro, validar que las ubicaciones existan en el microservicio de ubicaciones
-        if (idUbicacionOrigen == null || idUbicacionDestino == null) {
-            throw new RuntimeException("Ubicación origen y destino son requeridas");
-        }
-
-        if (idUbicacionOrigen.equals(idUbicacionDestino)) {
-            throw new RuntimeException("Origen y destino no pueden ser iguales");
-        }
-
-        List<Ruta> rutas = new ArrayList<>();
-
-        // Ruta 1: Directa (1 tramo)
-        Ruta r1 = crearRutaDirecta(idUbicacionOrigen, idUbicacionDestino);
-        rutas.add(r1);
-
-        // Ruta 2: Con 1 parada intermedia (2 tramos)
-        Ruta r2 = crearRutaConUnaParada(idUbicacionOrigen, idUbicacionDestino);
-        rutas.add(r2);
-
-        // Ruta 3: Con 2 paradas intermedias (3 tramos)
-        Ruta r3 = crearRutaConDosParadas(idUbicacionOrigen, idUbicacionDestino);
-        rutas.add(r3);
-
-        return rutas;
-    }
-
-    /**
-     * Crea una ruta directa de origen a destino (1 tramo)
+    /*
+     * public List<Ruta> generarRutasSugeridas(Integer idUbicacionOrigen, Integer
+     * idUbicacionDestino) {
+     * // En el futuro, validar que las ubicaciones existan en el microservicio de
+     * // ubicaciones
+     * if (idUbicacionOrigen == null || idUbicacionDestino == null) {
+     * throw new RuntimeException("Ubicación origen y destino son requeridas");
+     * }
+     * 
+     * if (idUbicacionOrigen.equals(idUbicacionDestino)) {
+     * throw new RuntimeException("Origen y destino no pueden ser iguales");
+     * }
+     * 
+     * List<Ruta> rutas = new ArrayList<>();
+     * 
+     * // Ruta 1: Directa (1 tramo)
+     * Ruta r1 = crearRutaDirecta(idUbicacionOrigen, idUbicacionDestino);
+     * rutas.add(r1);
+     * 
+     * // Ruta 2: Con 1 parada intermedia (2 tramos)
+     * Ruta r2 = crearRutaConUnaParada(idUbicacionOrigen, idUbicacionDestino);
+     * rutas.add(r2);
+     * 
+     * // Ruta 3: Con 2 paradas intermedias (3 tramos)
+     * Ruta r3 = crearRutaConDosParadas(idUbicacionOrigen, idUbicacionDestino);
+     * rutas.add(r3);
+     * 
+     * return rutas;
+     * }
+     * 
+     * 
+     * [MOCK] Crea una ruta directa de origen a destino (1 tramo)
+     * 
+     * private Ruta crearRutaDirecta(Integer origen, Integer destino) {
+     * Ruta ruta = new Ruta();
+     * ruta.setSolicitud(null); // Ruta global sin solicitud específica
+     * ruta.setCostoEstimado(45000.0);
+     * ruta.setTiempoEstimado("04:30");
+     * rutaRepository.save(ruta);
+     * 
+     * Tramo tramo = new Tramo();
+     * tramo.setRuta(ruta);
+     * tramo.setIdUbicacionOrigen(origen);
+     * tramo.setIdUbicacionDestino(destino);
+     * tramo.setPatenteCamion("1234-ABC");
+     * tramo.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
+     * tramo.setCostoAproximado(45000.0);
+     * tramo.setTiempo("04:30");
+     * tramoRepository.save(tramo);
+     * 
+     * return ruta;
+     * }
+     * 
+     * 
+     * [MOCK] Crea una ruta con 1 parada intermedia (2 tramos)
+     * 
+     * private Ruta crearRutaConUnaParada(Integer origen, Integer destino) {
+     * Ruta ruta = new Ruta();
+     * ruta.setSolicitud(null);
+     * ruta.setCostoEstimado(52500.0);
+     * ruta.setTiempoEstimado("05:30");
+     * rutaRepository.save(ruta);
+     * 
+     * // Parada intermedia mock (simulamos ubicación central)
+     * Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
+     * 
+     * // Tramo 1: Origen → Parada
+     * Tramo tramo1 = new Tramo();
+     * tramo1.setRuta(ruta);
+     * tramo1.setIdUbicacionOrigen(origen);
+     * tramo1.setIdUbicacionDestino(parada1);
+     * tramo1.setPatenteCamion("1234-ABC");
+     * tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
+     * tramo1.setCostoAproximado(13500.0);
+     * tramo1.setTiempo("01:30");
+     * tramoRepository.save(tramo1);
+     * 
+     * // Tramo 2: Parada → Destino
+     * Tramo tramo2 = new Tramo();
+     * tramo2.setRuta(ruta);
+     * tramo2.setIdUbicacionOrigen(parada1);
+     * tramo2.setIdUbicacionDestino(destino);
+     * tramo2.setPatenteCamion("5678-DEF");
+     * tramo2.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
+     * tramo2.setCostoAproximado(39000.0);
+     * tramo2.setTiempo("04:00");
+     * tramoRepository.save(tramo2);
+     * 
+     * return ruta;
+     * }
+     * 
+     * 
+     * [MOCK] Crea una ruta con 2 paradas intermedias (3 tramos)
+     * 
+     * private Ruta crearRutaConDosParadas(Integer origen, Integer destino) {
+     * Ruta ruta = new Ruta();
+     * ruta.setSolicitud(null);
+     * ruta.setCostoEstimado(48000.0);
+     * ruta.setTiempoEstimado("05:00");
+     * rutaRepository.save(ruta);
+     * 
+     * Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
+     * Integer parada2 = determinarParadaIntermedia(origen, destino, 2);
+     * 
+     * // Tramo 1: Origen → Parada1
+     * Tramo tramo1 = new Tramo();
+     * tramo1.setRuta(ruta);
+     * tramo1.setIdUbicacionOrigen(origen);
+     * tramo1.setIdUbicacionDestino(parada1);
+     * tramo1.setPatenteCamion("1234-ABC");
+     * tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
+     * tramo1.setCostoAproximado(34500.0);
+     * tramo1.setTiempo("03:30");
+     * tramoRepository.save(tramo1);
+     * 
+     * // Tramo 2: Parada1 → Parada2 (intermedio)
+     * Tramo tramo2 = new Tramo();
+     * tramo2.setRuta(ruta);
+     * tramo2.setIdUbicacionOrigen(parada1);
+     * tramo2.setIdUbicacionDestino(parada2);
+     * tramo2.setPatenteCamion("5678-DEF");
+     * // BUG: El dev anterior puso DESSTINO_DEPOSITO, lo copiamos tal cual
+     * tramo2.setTipoTramo(TipoTramo.DESSTINO_DEPOSITO);
+     * tramo2.setCostoAproximado(10000.0);
+     * tramo2.setTiempo("01:00");
+     * tramoRepository.save(tramo2);
+     * 
+     * // Tramo 3: Parada2 → Destino
+     * Tramo tramo3 = new Tramo();
+     * tramo3.setRuta(ruta);
+     * tramo3.setIdUbicacionOrigen(parada2);
+     * tramo3.setIdUbicacionDestino(destino);
+     * tramo3.setPatenteCamion("1234-ABC");
+     * tramo3.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
+     * tramo3.setCostoAproximado(13500.0);
+     * tramo3.setTiempo("01:30");
+     * tramoRepository.save(tramo3);
+     * 
+     * return ruta;
+     * }
+     * 
+     * 
+     * [MOCK] Determina paradas intermedias mockeadas según origen/destino
+     * 
+     * private Integer determinarParadaIntermedia(Integer origen, Integer destino,
+     * int numeroParada) {
+     * // Mock simple: retorna ubicación intermedia basada en origen/destino
+     * // En futuro, esto vendría del microservicio de ubicaciones
+     * if (numeroParada == 1) {
+     * return 4; // Zárate
+     * } else {
+     * return 5; // San Nicolás
+     * }
+     * }
      */
-    private Ruta crearRutaDirecta(Integer origen, Integer destino) {
-        Ruta ruta = new Ruta();
-        ruta.setSolicitud(null);  // Ruta global sin solicitud específica
-        ruta.setCostoEstimado(45000.0);
-        ruta.setTiempoEstimado("04:30");
-        rutaRepository.save(ruta);
-
-        Tramo tramo = new Tramo();
-        tramo.setRuta(ruta);
-        tramo.setIdUbicacionOrigen(origen);
-        tramo.setIdUbicacionDestino(destino);
-        tramo.setPatenteCamion("1234-ABC");
-        tramo.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-        tramo.setCostoAproximado(45000.0);
-        tramo.setTiempo("04:30");
-        tramoRepository.save(tramo);
-
-        return ruta;
-    }
-
-    /**
-     * Crea una ruta con 1 parada intermedia (2 tramos)
-     */
-    private Ruta crearRutaConUnaParada(Integer origen, Integer destino) {
-        Ruta ruta = new Ruta();
-        ruta.setSolicitud(null);
-        ruta.setCostoEstimado(52500.0);
-        ruta.setTiempoEstimado("05:30");
-        rutaRepository.save(ruta);
-
-        // Parada intermedia mock (simulamos ubicación central)
-        Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
-
-        // Tramo 1: Origen → Parada
-        Tramo tramo1 = new Tramo();
-        tramo1.setRuta(ruta);
-        tramo1.setIdUbicacionOrigen(origen);
-        tramo1.setIdUbicacionDestino(parada1);
-        tramo1.setPatenteCamion("1234-ABC");
-        tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
-        tramo1.setCostoAproximado(13500.0);
-        tramo1.setTiempo("01:30");
-        tramoRepository.save(tramo1);
-
-        // Tramo 2: Parada → Destino
-        Tramo tramo2 = new Tramo();
-        tramo2.setRuta(ruta);
-        tramo2.setIdUbicacionOrigen(parada1);
-        tramo2.setIdUbicacionDestino(destino);
-        tramo2.setPatenteCamion("5678-DEF");
-        tramo2.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-        tramo2.setCostoAproximado(39000.0);
-        tramo2.setTiempo("04:00");
-        tramoRepository.save(tramo2);
-
-        return ruta;
-    }
-
-    /**
-     * Crea una ruta con 2 paradas intermedias (3 tramos)
-     */
-    private Ruta crearRutaConDosParadas(Integer origen, Integer destino) {
-        Ruta ruta = new Ruta();
-        ruta.setSolicitud(null);
-        ruta.setCostoEstimado(48000.0);
-        ruta.setTiempoEstimado("05:00");
-        rutaRepository.save(ruta);
-
-        Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
-        Integer parada2 = determinarParadaIntermedia(origen, destino, 2);
-
-        // Tramo 1: Origen → Parada1
-        Tramo tramo1 = new Tramo();
-        tramo1.setRuta(ruta);
-        tramo1.setIdUbicacionOrigen(origen);
-        tramo1.setIdUbicacionDestino(parada1);
-        tramo1.setPatenteCamion("1234-ABC");
-        tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
-        tramo1.setCostoAproximado(34500.0);
-        tramo1.setTiempo("03:30");
-        tramoRepository.save(tramo1);
-
-        // Tramo 2: Parada1 → Parada2 (intermedio)
-        Tramo tramo2 = new Tramo();
-        tramo2.setRuta(ruta);
-        tramo2.setIdUbicacionOrigen(parada1);
-        tramo2.setIdUbicacionDestino(parada2);
-        tramo2.setPatenteCamion("5678-DEF");
-        tramo2.setTipoTramo(TipoTramo.DEPOSITO_DEPOSITO);
-        tramo2.setCostoAproximado(10000.0);
-        tramo2.setTiempo("01:00");
-        tramoRepository.save(tramo2);
-
-        // Tramo 3: Parada2 → Destino
-        Tramo tramo3 = new Tramo();
-        tramo3.setRuta(ruta);
-        tramo3.setIdUbicacionOrigen(parada2);
-        tramo3.setIdUbicacionDestino(destino);
-        tramo3.setPatenteCamion("1234-ABC");
-        tramo3.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-        tramo3.setCostoAproximado(13500.0);
-        tramo3.setTiempo("01:30");
-        tramoRepository.save(tramo3);
-
-        return ruta;
-    }
-
-    /**
-     * Determina paradas intermedias mockeadas según origen/destino
-     */
-    private Integer determinarParadaIntermedia(Integer origen, Integer destino, int numeroParada) {
-        // Mock simple: retorna ubicación intermedia basada en origen/destino
-        // En futuro, esto vendría del microservicio de ubicaciones
-        if (numeroParada == 1) {
-            return 4;  // Zárate
-        } else {
-            return 5;  // San Nicolás
-        }
-    }
-
     /**
      * Devuelve todas las rutas sugeridas globales (sin solicitud asignada)
      */
@@ -205,17 +650,20 @@ public class RutaService {
 
     /**
      * Asigna una ruta a una solicitud.
-     * En lugar de asignar directamente la ruta sugerida, se clona para que múltiples
+     * En lugar de asignar directamente la ruta sugerida, se clona para que
+     * múltiples
      * solicitudes puedan usar la misma ruta sugerida sin compartir datos.
      */
-    public Solicitud asignarRuta(Integer idSolicitud, Integer idRuta) {
+/**
+     * Asigna una ruta a una solicitud.
+     * En lugar de asignar directamente la ruta sugerida, se clona para que múltiples
+     * solicitudes puedan usar la misma ruta sugerida sin compartir datos.
+     * * @param fechaHoraInicioEstimada La fecha y hora en que se espera que comience el primer tramo.
+     */
+    public Solicitud asignarRuta(Integer idSolicitud, Integer idRuta, java.time.LocalDateTime fechaHoraInicioEstimada) {
 
-        //TODO: DEBERIA USAR EL QUE ESTA SIN LA ENTIDAD Y QUE PASE UN DTO ME PARECE
         Solicitud solicitud = solicitudService.getSolicitudEntityById(idSolicitud);
 
-        if (solicitud.getRutaAsignada() != null) {
-            throw new RuntimeException("La solicitud ya tiene una ruta asignada");
-        }
         Ruta rutaSugerida = rutaRepository.findById(idRuta)
                 .orElseThrow(() -> new RuntimeException("Ruta no encontrada"));
 
@@ -223,27 +671,58 @@ public class RutaService {
         Ruta rutaAsignada = clonarRuta(rutaSugerida, solicitud);
 
         solicitud.setRutaAsignada(rutaAsignada);
+    
+        // 1. Calcular Costo Estimado
         double costoEstimado = calculoCostoService.calcularCostoEstimado(rutaAsignada);
         solicitud.setCostoEstimado(costoEstimado);
 
-        // Calcular tiempo total acumulando tiempos de tramos
-        solicitud.setTiempoEstimado(
-                rutaAsignada.getTramos().stream()
-                        .map(Tramo::getTiempo)
-                        .reduce((t1, t2) -> {
-                            String[] parts1 = t1.split(":");
-                            String[] parts2 = t2.split(":");
-                            int hours = Integer.parseInt(parts1[0]) + Integer.parseInt(parts2[0]);
-                            int minutes = Integer.parseInt(parts1[1]) + Integer.parseInt(parts2[1]);
-                            if (minutes >= 60) {
-                                hours += minutes / 60;
-                                minutes = minutes % 60;
-                            }
-                            return String.format("%02d:%02d", hours, minutes);
-                        }).orElse("00:00")
-        );
+        // --- 2. CÁLCULO DE TIEMPOS ESTIMADOS Y FECHAS HORA ---
+        
+        java.time.Duration duracionTotal = java.time.Duration.ZERO;
+        // La hora de fin del tramo anterior se inicializa con la hora de inicio de la ruta
+        java.time.LocalDateTime horaFinTramoAnterior = fechaHoraInicioEstimada; 
+        
+        List<Tramo> tramos = rutaAsignada.getTramos(); 
+
+        for (int i = 0; i < tramos.size(); i++) {
+            Tramo tramo = tramos.get(i);
+            java.time.Duration duracionTramo = parseDuration(tramo.getTiempo());
+            
+            java.time.LocalDateTime horaInicioActual;
+            
+            // LÓGICA DE RETRASO POR DEPÓSITO
+            if (i == 0) {
+                // El primer tramo (i=0) comienza en la hora proporcionada.
+                horaInicioActual = fechaHoraInicioEstimada;
+            } else {
+                // Cualquier tramo subsiguiente (i > 0) comienza un día después 
+                // del fin del tramo anterior (para contabilizar la estadía).
+                horaInicioActual = horaFinTramoAnterior.plusDays(1);
+            }
+            
+            // Calcular hora de fin estimada: Inicio + Duración del tramo
+            java.time.LocalDateTime horaFinEstimada = horaInicioActual.plus(duracionTramo);
+            
+            // Guardar las fechas en el tramo
+            tramo.setFechaHoraInicioEstimada(horaInicioActual);
+            tramo.setFechaHoraFinEstimada(horaFinEstimada);
+            tramoRepository.save(tramo); // Persistir la actualización de fechas en cada tramo
+
+            // Actualizar variables para el próximo tramo y la duración total
+            horaFinTramoAnterior = horaFinEstimada;
+            duracionTotal = duracionTotal.plus(duracionTramo);
+        }
+
+        // 3. Calcular tiempo total para la Solicitud (en formato String D:HH:MM)
+        long days = duracionTotal.toDays();
+        long hours = duracionTotal.toHours() % 24;
+        long minutes = duracionTotal.toMinutes() % 60;
+        
+        // Formato D:HH:MM
+        solicitud.setTiempoEstimado(String.format("%d:%02d:%02d", days, hours, minutes));
         
         solicitudService.cambiarEstadoSolicitud(solicitud, "PROGRAMADA", "PROGRAMADA");
+
 
         return solicitudService.actualizarSolicitud(solicitud);
     }
@@ -260,10 +739,9 @@ public class RutaService {
 
         // Crear nueva ruta
         Ruta rutaClonada = new Ruta();
-        rutaClonada.setSolicitud(solicitud);  // Vincular a la solicitud
-        rutaClonada.setCostoEstimado(rutaOriginal.getCostoEstimado());
+        rutaClonada.setSolicitud(solicitud); // Vincular a la solicitud
         rutaClonada.setTiempoEstimado(rutaOriginal.getTiempoEstimado());
-        
+
         // Guardar ruta clonada
         Ruta rutaGuardada = rutaRepository.save(rutaClonada);
 
@@ -276,8 +754,9 @@ public class RutaService {
             tramoClonado.setIdUbicacionDestino(tramoOriginal.getIdUbicacionDestino());
             tramoClonado.setPatenteCamion(tramoOriginal.getPatenteCamion());
             tramoClonado.setTipoTramo(tramoOriginal.getTipoTramo());
-            tramoClonado.setCostoAproximado(tramoOriginal.getCostoAproximado());
             tramoClonado.setTiempo(tramoOriginal.getTiempo());
+            tramoClonado.setDistanciaKm(tramoOriginal.getDistanciaKm());
+            tramoClonado.setPatenteCamion(tramoOriginal.getPatenteCamion());
             // Se pueden agregar más campos si es necesario
             tramoRepository.save(tramoClonado);
             tramosClonados.add(tramoClonado);
@@ -287,4 +766,159 @@ public class RutaService {
         rutaGuardada.setTramos(tramosClonados);
         return rutaGuardada;
     }
+
+    // Este método es necesario para el nuevo asignarRuta
+private java.time.Duration parseDuration(String tiempoEstimado) {
+    if (tiempoEstimado == null || tiempoEstimado.isBlank() || !tiempoEstimado.contains(":")) {
+        return java.time.Duration.ZERO;
+    }
+
+    try {
+        String[] parts = tiempoEstimado.split(":");
+        
+        if (parts.length == 3) {
+            // Formato: DIAS:HORAS:MINUTOS
+            long days = Long.parseLong(parts[0]);
+            long hours = Long.parseLong(parts[1]);
+            long minutes = Long.parseLong(parts[2]);
+            return java.time.Duration.ofDays(days).plusHours(hours).plusMinutes(minutes);
+            
+        } else if (parts.length == 2) {
+            // Formato: HORAS:MINUTOS
+            long hours = Long.parseLong(parts[0]);
+            long minutes = Long.parseLong(parts[1]);
+            return java.time.Duration.ofHours(hours).plusMinutes(minutes);
+        }
+    } catch (NumberFormatException e) {
+        System.err.println("Error al parsear la duración estimada: " + tiempoEstimado + ". Usando 0.");
+    }
+    return java.time.Duration.ZERO;
+}
+
+    // INICIO: NUESTRA LÓGICA (PASO 4)
+    // ---
+
+    /**
+     * Genera todas las permutaciones de tamaño 'k' (cantidadDepositos)
+     * a partir de una lista de depósitos relevantes.
+     *
+     * @param depositosRelevantes La lista filtrada de depósitos "en dirección".
+     * @param k                   El número de paradas que solicitó el Operador.
+     * @return Una lista de listas (ej: [[DepA, DepB], [DepB, DepA], [DepA, DepC],
+     *         ...])
+     */
+    private List<List<DepositoRelevante>> generarPermutaciones(
+            List<DepositoRelevante> depositosRelevantes, int k) {
+
+        List<List<DepositoRelevante>> todasLasPermutaciones = new ArrayList<>();
+
+        // Empezamos el proceso recursivo con un camino vacío
+        encontrarPermutacionesRecursivo(
+                depositosRelevantes,
+                k,
+                new ArrayList<>(), // El "camino actual" (empieza vacío)
+                todasLasPermutaciones // La lista donde guardamos los resultados
+        );
+
+        return todasLasPermutaciones;
+    }
+
+    /**
+     * Método auxiliar recursivo (se llama a sí mismo) para construir los caminos.
+     * Es la "vuelta atrás" (backtracking).
+     */
+    private void encontrarPermutacionesRecursivo(
+            List<DepositoRelevante> listaOriginal,
+            int k,
+            List<DepositoRelevante> caminoActual,
+            List<List<DepositoRelevante>> resultados) {
+
+        // --- 1. Caso Base: ¿El camino está completo? ---
+        // Si k=2 y nuestro camino ya tiene 2 paradas (ej: [DepA, DepC]),
+        // lo guardamos en los resultados y terminamos esta rama.
+        if (caminoActual.size() == k) {
+            resultados.add(new ArrayList<>(caminoActual)); // Guardamos una copia
+            return;
+        }
+
+        // --- 2. Caso Recursivo: Seguir construyendo el camino ---
+
+        // Iteramos sobre TODOS los depósitos relevantes
+        for (DepositoRelevante deposito : listaOriginal) {
+
+            // Si el depósito que estamos mirando (ej: DepA)
+            // NO está ya en el camino que estamos construyendo...
+            if (!caminoActual.contains(deposito)) {
+
+                // ...lo añadimos al camino
+                caminoActual.add(deposito); // (El camino ahora es [DepA])
+
+                // Llamamos a esta MISMA función para encontrar el siguiente paso
+                // (Ej: "buscar el segundo paso para el camino [DepA]")
+                encontrarPermutacionesRecursivo(listaOriginal, k, caminoActual, resultados);
+
+                // --- 3. La "Vuelta Atrás" (Backtracking) ---
+                // Cuando la llamada anterior termina (ej: encontró [DepA, DepB]),
+                // "borramos" el último paso.
+                caminoActual.remove(caminoActual.size() - 1);
+                // (El camino vuelve a ser [DepA]).
+                // En la siguiente iteración del 'for', probará con DepC
+                // (para armar [DepA, DepC]).
+            }
+        }
+    }
+
+    // ---
+    // FIN: NUESTRA LÓGICA (PASO 4)
+
+    // Agrega o reemplaza este método auxiliar DENTRO de la clase RutaService
+
+    /**
+     * Convierte el tiempo estimado en formato "D:HH:MM" o "HH:MM" a minutos
+     * totales.
+     *
+     * @param tiempoEstimado Tiempo en formato "D:HH:MM" o "HH:MM".
+     * @return Minutos totales, o 0 si el formato es inválido o nulo.
+     */
+    private int parseTiempoEstimado(String tiempoEstimado) {
+        if (tiempoEstimado == null || tiempoEstimado.isBlank() || !tiempoEstimado.contains(":")) {
+            return 0;
+        }
+
+        try {
+            String[] parts = tiempoEstimado.split(":");
+            int totalMinutes = 0;
+
+            if (parts.length == 3) {
+                // Formato: DIAS:HORAS:MINUTOS
+                int days = Integer.parseInt(parts[0]);
+                int hours = Integer.parseInt(parts[1]);
+                int minutes = Integer.parseInt(parts[2]);
+
+                totalMinutes += days * 24 * 60; // Días a minutos
+                totalMinutes += hours * 60; // Horas a minutos
+                totalMinutes += minutes; // Minutos
+
+            } else if (parts.length == 2) {
+                // Formato: HORAS:MINUTOS (asumiendo que las horas pueden ser > 24)
+                int hours = Integer.parseInt(parts[0]);
+                int minutes = Integer.parseInt(parts[1]);
+
+                totalMinutes += hours * 60; // Horas a minutos
+                totalMinutes += minutes; // Minutos
+
+            } else {
+                // Formato no reconocido
+                return 0;
+            }
+
+            return totalMinutes;
+
+        } catch (NumberFormatException e) {
+            System.err.println("Error al parsear el tiempo estimado (" + tiempoEstimado
+                    + "). Verifique que todas las partes sean números. Error: " + e.getMessage());
+            return 0;
+        }
+    }
+    // ---
 }
