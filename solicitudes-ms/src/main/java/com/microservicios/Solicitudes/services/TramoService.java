@@ -1,6 +1,6 @@
 package com.microservicios.Solicitudes.services;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 
@@ -53,13 +53,11 @@ public class TramoService {
 
         // Guardar el tramo actualizado
 
-        tramo.setFechaInicio(LocalDate.now());
+        tramo.setFechaInicio(LocalDateTime.now());
         tramoRepository.save(tramo);
         // Intentar calcular el costo real del tramo anterios ya que ahora tiene los
         // dias de estadia
         try {
-            // TODO: CAMBIAR ESTO, NO SE SI NECESITA CALCULARLO AHORA (AUNQUE CAPAZ SIRVE
-            // PARA LO DE DIAS ESTADIA)
             if (tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO)) {
                 Tramo tramoAnterior = tramoRepository.findById(tramo.getId() - 1)
                         .orElseThrow(() -> new RuntimeException("Tramo anterior no encontrado"));
@@ -100,7 +98,7 @@ public class TramoService {
         }
 
         // Establecer la fecha de finalización
-        tramo.setFechaFin(LocalDate.now());
+        tramo.setFechaFin(LocalDateTime.now());
 
         TipoTramo tipoTramo = tramo.getTipoTramo();
 

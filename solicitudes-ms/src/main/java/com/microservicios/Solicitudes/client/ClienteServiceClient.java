@@ -1,9 +1,13 @@
 package com.microservicios.Solicitudes.client;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import com.backend.UbicacionesMicroservicio.dto.EstadoContenedorDTO;
 import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
+import org.springframework.core.ParameterizedTypeReference;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +34,11 @@ public class ClienteServiceClient {
                 .body(Void.class);
     }
 
-    //TODO: agregar llamada a los estados del contenedor 
-  
+    public List<EstadoContenedorDTO> obtenerEstadosContendor() {
+        String url = CLIENTE_SERVICE_URL + "/api/estdos-contenedores";
+        return restClient.get()
+            .uri(url)
+            .retrieve()
+            .body(new ParameterizedTypeReference<List<EstadoContenedorDTO>>() {});
+    }
 }

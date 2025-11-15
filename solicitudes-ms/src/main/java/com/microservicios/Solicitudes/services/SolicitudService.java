@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.microservicio.Solicitudes.dto.responses.EstadoContenedorDTO;
 import com.microservicios.Solicitudes.client.ClienteServiceClient;
 import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
@@ -26,7 +27,7 @@ public class SolicitudService {
     private final SolicitudRepository solicitudRepository;
     private final ClienteServiceClient clienteServiceClient;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
-    
+
     public Solicitud createSolicitud(CrearSolicitudDTO dto) {
         Solicitud solicitud = new Solicitud();
         solicitud.setIdCliente(dto.getIdCliente());
@@ -49,16 +50,17 @@ public class SolicitudService {
                 .toList();
     }
 
-    /* 
-    public Solicitud finalizarSolicitud(Solicitud solicitud) {
-        solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.FINALIZADA);
-        //deben ser calculados
-        solicitud.setCostoReal(222.0); 
-        solicitud.setTiempoReal("2 horas");
-
-        return solicitudRepository.save(solicitud);
-    }
-    */
+    /*
+     * public Solicitud finalizarSolicitud(Solicitud solicitud) {
+     * solicitud.setEstado(com.microservicios.Solicitudes.entity.EstadoSolicitud.
+     * FINALIZADA);
+     * //deben ser calculados
+     * solicitud.setCostoReal(222.0);
+     * solicitud.setTiempoReal("2 horas");
+     * 
+     * return solicitudRepository.save(solicitud);
+     * }
+     */
 
     /**
      * Elimina una solicitud por ID
@@ -69,22 +71,22 @@ public class SolicitudService {
         solicitudRepository.delete(solicitud);
     }
 
-    //PODRIA PASAR DIRECTAMENTE LA ENTIDAD SOLICITUD
+    // PODRIA PASAR DIRECTAMENTE LA ENTIDAD SOLICITUD
     public SolicitudDTO finalizarSolicitud(Integer idSolicitud) {
         Solicitud solicitud = solicitudRepository.findById(idSolicitud)
                 .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
-                
+
         Ruta ruta = solicitud.getRutaAsignada();
         Double costoRealTotal = ruta.getTramos().stream()
-                    .mapToDouble(t -> t.getCostoReal() != null ? t.getCostoReal() : 0.0)
-                    .sum();
+                .mapToDouble(t -> t.getCostoReal() != null ? t.getCostoReal() : 0.0)
+                .sum();
 
-            // IMPORTANTE: Actualizar la solicitud con estado FINALIZADA
-        cambiarEstadoSolicitud(solicitud,"FINALIZADA", "ENTREGADO");
-        //deben ser calculados
+        // IMPORTANTE: Actualizar la solicitud con estado FINALIZADA
+        cambiarEstadoSolicitud(solicitud, "FINALIZADA", "ENTREGADO");
+        // deben ser calculados
         solicitud.setCostoReal(costoRealTotal);
 
-        //:TODO debera calcular tempo real
+        // :TODO debera calcular tempo real
         solicitud.setTiempoReal("2 horas");
 
         Solicitud solicitudFinalizada = solicitudRepository.save(solicitud);
@@ -101,7 +103,7 @@ public class SolicitudService {
         return solicitudRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Solicitud no encontrada"));
     }
-    
+
     private SolicitudDTO convertToDTO(Solicitud solicitud) {
         SolicitudDTO dto = new SolicitudDTO();
         dto.setId(solicitud.getId());
@@ -131,26 +133,42 @@ public class SolicitudService {
             }
         }
 
-        CambioEstadoSolicitud cambio = new CambioEstadoSolicitud(LocalDate.now().atStartOfDay(), nuevoEstado, estadoContenedor);
+        CambioEstadoSolicitud cambio = new CambioEstadoSolicitud(LocalDate.now().atStartOfDay(), nuevoEstado,
+                estadoContenedor);
         solicitud.addCambioEstado(cambio);
 
-    
         try {
             ContenedorDTO contenedorDTO = clienteServiceClient.obtenerContenedorPorId(solicitud.getIdContenedor());
-            //HABRIA QUE DEFINIR BIEN LOS ESTADOS DEL CONTENEDOR -------------------------------------------------------------------------------------------------
-            contenedorDTO.setEstadoId(1); //POR AHORA SE SETEA EN 1 (EN ORIGEN)
+            // TODO: DEFINIR BIEN LA IGUALDAD DE LOS ESTADOS
+
+            List<EstadoContenedorDTO> estadosContendorDTO = clienteServiceClient.obtenerEstadosContendor();
+            Integer idEstado = estadosContenedorDTO.stream()
+                    // 1. Filtra la lista por el nombre que coincide
+                    .filter(estado -> estado.getNombre().equals(estadoContenedor))
+                    // 2. Mapea al ID
+                    .map(estado -> estado.getId())
+                    // 3. Obtiene el resultado, o lanza una excepción si no lo encuentra.
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("El nombre de estado de contenedor '" + estadoContenedor
+                            + "' no fue encontrado en el servicio de Clientes."));
+            contenedorDTO.setEstadoId(idEstado); // POR AHORA SE SETEA EN 1 (EN ORIGEN)
 
             clienteServiceClient.actualizarContenedor(contenedorDTO);
+        } catch (RuntimeException e) {
+            // Captura el error de 'orElseThrow' o cualquier error de negocio.
+            System.err.println("Error de negocio: " + e.getMessage());
+            // Aquí puedes añadir lógica para deshacer el cambio de estado de la solicitud
+            throw e; // Relanza la excepción para que el endpoint HTTP falle.
         } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            // Captura errores de comunicación del RestClient
+            System.err.println("Error CRÍTICO al comunicarse con ClienteService: " + e.getMessage());
+            // Aquí puedes añadir lógica para deshacer el cambio de estado de la solicitud
+            throw new RuntimeException("Fallo la comunicación con el servicio de Clientes.", e);
         }
-
 
         solicitud.setEstado(estadoSolicitud);
         solicitudRepository.save(solicitud);
-    }   
-
+    }
 
     public List<CambioEstadoSolicitudDTO> getCambiosEstadoSolicitud(int solicitudId) {
         Solicitud solicitud = solicitudRepository.findById(solicitudId)
