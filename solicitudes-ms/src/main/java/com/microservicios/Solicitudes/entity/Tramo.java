@@ -37,6 +37,11 @@ public class Tramo {
     private Double costoAproximado;
     private Double costoReal;
     private String tiempo;
+    
+
+    private int idDepositoDestino;
+
+
 
     public Double getDistanciaKm() {
         // Lógica para calcular o retornar los kilómetros del tramo

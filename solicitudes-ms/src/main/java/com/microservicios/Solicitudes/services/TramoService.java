@@ -24,9 +24,9 @@ public class TramoService {
     public void asignarCamion(Integer idTramo, String patenteCamion) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
-        
+
         Integer idContenedor = tramo.getRuta().getSolicitud().getIdContenedor();
-        
+
         if (transporteServiceClient.verificarCapacidad(patenteCamion, idContenedor)) {
             transporteServiceClient.ocuparCamion(patenteCamion);
             tramo.setPatenteCamion(patenteCamion);
@@ -45,15 +45,39 @@ public class TramoService {
         }
         TipoTramo tipoTramo = tramo.getTipoTramo();
 
-        if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
+        if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)
+                || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
             solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_RUTA", "EN_CAMINO");
-            
+
         }
+
+        // Guardar el tramo actualizado
 
         tramo.setFechaInicio(LocalDate.now());
         tramoRepository.save(tramo);
-    }
+        // Intentar calcular el costo real del tramo anterios ya que ahora tiene los
+        // dias de estadia
+        try {
+            // TODO: CAMBIAR ESTO, NO SE SI NECESITA CALCULARLO AHORA (AUNQUE CAPAZ SIRVE
+            // PARA LO DE DIAS ESTADIA)
+            if (tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO)) {
+                Tramo tramoAnterior = tramoRepository.findById(tramo.getId() - 1)
+                        .orElseThrow(() -> new RuntimeException("Tramo anterior no encontrado"));
+                calculoCostoService.calcularCostoRealTramo(tramoAnterior, tramo);
+            } else {
+                if (tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
+                    calculoCostoService.calcularCostoRealTramo(tramo, null);
+                }
+            }
 
+        } catch (Exception e) {
+            // Si falla el cálculo, loguear pero NO fallar
+            System.err.println("Error calculando costo real del tramo " + idTramo + ": " + e.getMessage());
+            // Usar el costo aproximado como fallback
+            tramo.setCostoReal(tramo.getCostoAproximado());
+        }
+
+    }
 
     public Tramo finalizarTramo(Integer idTramo) {
         // Obtener el tramo y validar que existe
@@ -77,43 +101,23 @@ public class TramoService {
 
         // Establecer la fecha de finalización
         tramo.setFechaFin(LocalDate.now());
-        
-        // Intentar calcular el costo real del tramo
-        try {
-            Double costoReal = calculoCostoService.calcularCostoReal(tramo.getRuta().getSolicitud());
-            tramo.setCostoReal(costoReal);
-        } catch (Exception e) {
-            // Si falla el cálculo, loguear pero NO fallar
-            System.err.println("Error calculando costo real del tramo " + idTramo + ": " + e.getMessage());
-            // Usar el costo aproximado como fallback
-            tramo.setCostoReal(tramo.getCostoAproximado());
-        }
-        
-        // Guardar el tramo actualizado
-        tramoRepository.save(tramo);
-
 
         TipoTramo tipoTramo = tramo.getTipoTramo();
 
         if (tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
             solicitudService.finalizarSolicitud(tramo.getRuta().getSolicitud().getId());
             transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
-        }
-        else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
+        } else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
             solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_DEPOSITO", "EN_DEPOSITO");
 
-        
         }
-
+        tramoRepository.save(tramo);
         return tramo;
     }
 
-    
     public void eliminarTramo(Integer idTramo) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
         tramoRepository.delete(tramo);
     }
 }
-
-

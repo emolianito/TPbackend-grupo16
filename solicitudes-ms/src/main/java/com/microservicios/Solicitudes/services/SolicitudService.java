@@ -20,8 +20,6 @@ import com.microservicios.Solicitudes.repository.SolicitudRepository;
 
 import lombok.AllArgsConstructor;
 
-import static com.microservicios.Solicitudes.entity.EstadoSolicitud.*;
-
 @Service
 @AllArgsConstructor
 public class SolicitudService {

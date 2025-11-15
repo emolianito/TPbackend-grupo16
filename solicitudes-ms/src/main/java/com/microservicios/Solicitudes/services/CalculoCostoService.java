@@ -69,8 +69,8 @@ public class CalculoCostoService {
         for (int i = 0; i < ruta.getTramos().size(); i++) {
 
             Tramo actual = ruta.getTramos().get(i);
-            double costoTramo = calcularCostoRealTramo(actual, tarifa, i, ruta);
-            costoTotal += costoTramo;
+            
+            costoTotal += actual.getCostoReal() != null ? actual.getCostoReal() : 0.0;
         }
 
         return costoTotal;
@@ -80,10 +80,12 @@ public class CalculoCostoService {
      * Calcula el costo real de un tramo individual con manejo de errores.
      * Si falla la obtención de datos de microservicios, usa valores fallback.
      */
-    private double calcularCostoRealTramo(Tramo actual, Tarifa tarifa, int index, Ruta ruta) {
+    public void calcularCostoRealTramo(Tramo actual, Tramo siguiente) {
         try {
+            Tarifa tarifaVigente = tarifaService.getTarifaVigente();
             CamionDTO camion = null;
             DepositoDTO deposito = null;
+            Ruta ruta = actual.getRuta();
             
             // Intentar obtener datos del camión con manejo de error
             try {
@@ -110,12 +112,11 @@ public class CalculoCostoService {
             double costoEstadia = 0.0;
 
             // Si existe tramo siguiente, calculamos estadía
-            if (index < ruta.getTramos().size() - 1) {
-                Tramo siguiente = ruta.getTramos().get(index + 1);
+            if (siguiente != null) {
                 
                 // Intentar obtener datos del depósito con manejo de error
                 try {
-                    deposito = depositoClient.obtenerDepositoPorId(actual.getIdUbicacionDestino());
+                     deposito = depositoClient.obtenerDepositoPorId(actual.getIdDepositoDestino());
                     
                     if (actual.getFechaFin() != null && siguiente.getFechaInicio() != null) {
                         long diasEstadia = ChronoUnit.DAYS.between(actual.getFechaFin(), siguiente.getFechaInicio());
@@ -127,13 +128,13 @@ public class CalculoCostoService {
                     costoEstadia = 0.0;
                 }
             }
+            double costoRealTramo = costoTraslado + costoCombustible + costoEstadia + tarifaVigente.getCostoFijoPorTramo();
+            actual.setCostoReal(costoRealTramo);
 
-            return costoTraslado + costoCombustible + costoEstadia + tarifa.getCostoFijoPorTramo();
             
         } catch (Exception e) {
             logger.severe("Error calculando costo real del tramo " + actual.getId() + ": " + e.getMessage());
             // Como último fallback, retornar el costo aproximado del tramo
-            return actual.getCostoAproximado() != null ? actual.getCostoAproximado() : 0.0;
-        }
+            actual.setCostoReal(actual.getCostoAproximado() != null ? actual.getCostoAproximado() : 0.0);}
     }
 }
