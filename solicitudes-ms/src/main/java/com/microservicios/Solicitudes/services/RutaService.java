@@ -210,6 +210,7 @@ public class RutaService {
      */
     public Solicitud asignarRuta(Integer idSolicitud, Integer idRuta) {
 
+        //TODO: DEBERIA USAR EL QUE ESTA SIN LA ENTIDAD Y QUE PASE UN DTO ME PARECE
         Solicitud solicitud = solicitudService.getSolicitudEntityById(idSolicitud);
 
         if (solicitud.getRutaAsignada() != null) {

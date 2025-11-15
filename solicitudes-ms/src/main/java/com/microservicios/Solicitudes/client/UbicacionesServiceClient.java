@@ -16,7 +16,7 @@ public class UbicacionesServiceClient {
 
     public DepositoDTO obtenerDepositoPorId(Integer depositoId) {
         return restClient.get()
-                .uri(UBICACIONES_SERVICE_URL + "/depositos/" + depositoId)
+                .uri(UBICACIONES_SERVICE_URL + "/ubicaciones/depositos/" + depositoId)
                 .retrieve()
                 .body(DepositoDTO.class);
     }
