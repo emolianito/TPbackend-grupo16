@@ -1,6 +1,6 @@
 package com.microservicios.Solicitudes.entity;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
@@ -24,8 +24,13 @@ public class Tramo {
     @JsonBackReference
     private Ruta ruta;
 
-    private LocalDate fechaInicio;
-    private LocalDate fechaFin;
+    private LocalDateTime fechaInicio;
+    private LocalDateTime fechaFin;
+
+    
+    private LocalDateTime fechaHoraInicioEstimada;
+    private LocalDateTime fechaHoraFinEstimada;
+
 
     private Integer idUbicacionOrigen;
     private Integer idUbicacionDestino;
@@ -34,17 +39,11 @@ public class Tramo {
 
     private TipoTramo tipoTramo;
 
-    private Double costoAproximado;
     private Double costoReal;
     private String tiempo;
     
 
     private int idDepositoDestino;
 
-
-
-    public Double getDistanciaKm() {
-        // Lógica para calcular o retornar los kilómetros del tramo
-        return 0.0;
-    }
+    private Double distanciaKm;
 }

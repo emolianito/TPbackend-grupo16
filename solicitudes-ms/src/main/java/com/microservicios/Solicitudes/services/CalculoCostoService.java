@@ -49,7 +49,8 @@ public class CalculoCostoService {
         int cantidadDepositos = ruta.getTramos().size() - 1;
         double costoEstadiaEstimado = cantidadDepositos * tarifa.getCostoEstadiaDiariaDeposito();
 
-        return costoTrasladoEstimado + costoCombustibleEstimado + costoEstadiaEstimado;
+
+        return costoTrasladoEstimado + costoCombustibleEstimado + costoEstadiaEstimado + (ruta.getTramos().size() * tarifa.getCostoFijoPorTramo());
 
     }
 
@@ -72,8 +73,9 @@ public class CalculoCostoService {
             
             costoTotal += actual.getCostoReal() != null ? actual.getCostoReal() : 0.0;
         }
+        double costoGestion = (ruta.getTramos().size() * tarifa.getCostoFijoPorTramo());
 
-        return costoTotal;
+        return costoTotal + costoGestion;
     }
 
     /**
@@ -85,7 +87,6 @@ public class CalculoCostoService {
             Tarifa tarifaVigente = tarifaService.getTarifaVigente();
             CamionDTO camion = null;
             DepositoDTO deposito = null;
-            Ruta ruta = actual.getRuta();
             
             // Intentar obtener datos del camión con manejo de error
             try {
@@ -102,10 +103,10 @@ public class CalculoCostoService {
                 // Usar datos reales del camión
                 costoTraslado = actual.getDistanciaKm() * camion.getCostoBasePorKm().doubleValue();
                 costoCombustible = actual.getDistanciaKm() * camion.getConsumoPorKm().doubleValue()
-                        * tarifa.getCostoLitroCombustible();
+                        * tarifaVigente.getCostoLitroCombustible();
             } else {
                 // Fallback: usar costo aproximado del tramo (ya tenemos esto guardado)
-                costoTraslado = actual.getCostoAproximado() != null ? actual.getCostoAproximado() : 0.0;
+                costoTraslado = 0.0;
                 logger.info("Usando fallback para costos del tramo " + actual.getId() + ": " + costoTraslado);
             }
 
@@ -135,6 +136,6 @@ public class CalculoCostoService {
         } catch (Exception e) {
             logger.severe("Error calculando costo real del tramo " + actual.getId() + ": " + e.getMessage());
             // Como último fallback, retornar el costo aproximado del tramo
-            actual.setCostoReal(actual.getCostoAproximado() != null ? actual.getCostoAproximado() : 0.0);}
+            actual.setCostoReal(0.0);}
     }
 }

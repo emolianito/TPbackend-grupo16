@@ -1,5 +1,6 @@
 package com.microservicios.Solicitudes.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
@@ -45,8 +46,8 @@ public class SolicitudController {
      * La ruta sugerida se clona para que la solicitud tenga su propia copia independiente.
      */
     @PostMapping("/{id}/asignar-ruta/{rutaId}")
-    public ResponseEntity<?> asignarRuta(@PathVariable Integer id, @PathVariable Integer rutaId) {
-        return ResponseEntity.ok(rutaService.asignarRuta(id, rutaId));
+    public ResponseEntity<?> asignarRuta(@PathVariable Integer id, @PathVariable Integer rutaId, @RequestBody LocalDateTime fechaHoraInicioEstimada) {
+        return ResponseEntity.ok(rutaService.asignarRuta(id, rutaId, fechaHoraInicioEstimada));
     }
 
     /**
