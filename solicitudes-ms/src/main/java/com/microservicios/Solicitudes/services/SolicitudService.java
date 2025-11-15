@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.microservicio.Solicitudes.dto.responses.EstadoContenedorDTO;
+import com.microservicios.Solicitudes.dto.responses.EstadoContenedorDTO;
 import com.microservicios.Solicitudes.client.ClienteServiceClient;
 import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
 import com.microservicios.Solicitudes.dto.request.CrearSolicitudDTO;
@@ -141,7 +141,7 @@ public class SolicitudService {
             ContenedorDTO contenedorDTO = clienteServiceClient.obtenerContenedorPorId(solicitud.getIdContenedor());
             // TODO: DEFINIR BIEN LA IGUALDAD DE LOS ESTADOS
 
-            List<EstadoContenedorDTO> estadosContendorDTO = clienteServiceClient.obtenerEstadosContendor();
+            List<EstadoContenedorDTO> estadosContenedorDTO = clienteServiceClient.obtenerEstadosContendor();
             Integer idEstado = estadosContenedorDTO.stream()
                     // 1. Filtra la lista por el nombre que coincide
                     .filter(estado -> estado.getNombre().equals(estadoContenedor))
@@ -151,6 +151,7 @@ public class SolicitudService {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("El nombre de estado de contenedor '" + estadoContenedor
                             + "' no fue encontrado en el servicio de Clientes."));
+
             contenedorDTO.setEstadoId(idEstado); // POR AHORA SE SETEA EN 1 (EN ORIGEN)
 
             clienteServiceClient.actualizarContenedor(contenedorDTO);

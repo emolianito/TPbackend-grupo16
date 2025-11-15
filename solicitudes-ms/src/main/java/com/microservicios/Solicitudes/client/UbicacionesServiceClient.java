@@ -3,7 +3,9 @@ package com.microservicios.Solicitudes.client;
 import com.microservicios.Solicitudes.dto.external.CoordenadasDTO;
 import com.microservicios.Solicitudes.dto.external.DepositoDTO;
 import com.microservicios.Solicitudes.dto.external.DistanciaDTO;
-import org.springframework.beans.factory.annotation.Value;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -11,25 +13,25 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class UbicacionesServiceClient {
 
-    private final RestClient restClient;
+    // DEFINIMOS LA URL BASE COMO CONSTANTE, replicando la estructura de TransporteServiceClient.
+    // Usamos el puerto 8082, ya que parece ser el estándar en su proyecto.
+    private static final String UBICACIONES_SERVICE_URL = "http://localhost:8082";
 
-    public UbicacionesServiceClient(RestClient.Builder builder,
-            @Value("${microservicios.ubicaciones.url}") String baseUrl) {
-        this.restClient = builder.baseUrl(baseUrl).build();
-    }
+    private final RestClient restClient;
 
     /**
      * Llama al endpoint GET /api/distancia
      */
     public DistanciaDTO obtenerDistancia(String origenCoords, String destinoCoords) {
+        // Construimos la URL completa con los query parameters.
+        String url = String.format("%s/api/distancia?origen=%s&destino=%s", 
+                                   UBICACIONES_SERVICE_URL, origenCoords, destinoCoords);
+        
         return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/distancia")
-                        .queryParam("origen", origenCoords)
-                        .queryParam("destino", destinoCoords)
-                        .build())
+                .uri(url)
                 .retrieve()
                 .body(DistanciaDTO.class);
     }
@@ -38,34 +40,33 @@ public class UbicacionesServiceClient {
      * Llama al endpoint GET /ubicaciones/depositos
      */
     public List<DepositoDTO> obtenerDepositos() {
+        String url = UBICACIONES_SERVICE_URL + "/ubicaciones/depositos";
         return restClient.get()
-                .uri("/ubicaciones/depositos")
+                .uri(url)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<DepositoDTO>>() {
                 });
     }
 
-    // --- ¡¡NUEVO MÉTODO AÑADIDO!! ---
     /**
      * Llama al endpoint GET /ubicaciones/depositos/{id}
      * Necesario para CalculoCostoService.
      */
     public DepositoDTO obtenerDepositoPorId(Integer id) {
-        // Llama a: http://localhost:8082/ubicaciones/depositos/{id}
+        // Construimos la URL completa con la variable de ruta (path variable).
+        String url = String.format("%s/ubicaciones/depositos/%d", UBICACIONES_SERVICE_URL, id);
         return restClient.get()
-                .uri("/ubicaciones/depositos/{id}", id) // Pasamos el 'id' como variable de ruta
+                .uri(url)
                 .retrieve()
-                .body(DepositoDTO.class); // Espera un solo DepositoDTO
+                .body(DepositoDTO.class);
     }
 
     public CoordenadasDTO obtenerCoordenadas(String direccion) {
-        // Llama a:
-        // http://localhost:8082/ubicaciones/localizaciones/geocode?direccion=...
+        // Construimos la URL completa con el query parameter.
+        String url = String.format("%s/ubicaciones/localizaciones/geocode?direccion=%s", 
+                                   UBICACIONES_SERVICE_URL, direccion);
         return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/ubicaciones/localizaciones/geocode")
-                        .queryParam("direccion", direccion)
-                        .build())
+                .uri(url)
                 .retrieve()
                 .body(CoordenadasDTO.class);
     }

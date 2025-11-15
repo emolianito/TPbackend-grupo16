@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import com.backend.UbicacionesMicroservicio.dto.EstadoContenedorDTO;
+import com.microservicios.Solicitudes.dto.responses.EstadoContenedorDTO;
 import com.microservicios.Solicitudes.dto.external.ContenedorDTO;
 import org.springframework.core.ParameterizedTypeReference;
 
