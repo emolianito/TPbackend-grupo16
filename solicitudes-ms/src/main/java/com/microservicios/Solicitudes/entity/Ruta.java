@@ -7,11 +7,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.*;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode; // <-- IMPORT AGREGADO
-import lombok.ToString;
+import lombok.*;
 
 @Entity
 @Data
@@ -34,5 +30,6 @@ public class Ruta {
     @JsonManagedReference
     @EqualsAndHashCode.Exclude // ⬅️ BUENA PRÁCTICA (Colecciones)
     @ToString.Exclude
+    @OrderBy("id ASC")
     private List<Tramo> tramos;
 }

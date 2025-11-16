@@ -1,27 +1,33 @@
 package com.microservicios.Solicitudes.services;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.microservicios.Solicitudes.client.TransporteServiceClient;
-
+import com.microservicios.Solicitudes.dto.responses.TramoDTO;
+import com.microservicios.Solicitudes.entity.Ruta;
+import com.microservicios.Solicitudes.entity.Solicitud;
 import com.microservicios.Solicitudes.entity.TipoTramo;
 import com.microservicios.Solicitudes.entity.Tramo;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @RequiredArgsConstructor
 public class TramoService {
+    private static final Logger logger = LoggerFactory.getLogger(TramoService.class);
 
     private final TramoRepository tramoRepository;
     private final SolicitudService solicitudService;
     private final CalculoCostoService calculoCostoService;
     private final TransporteServiceClient transporteServiceClient;
 
-    public void asignarCamion(Integer idTramo, String patenteCamion) {
+    public TramoDTO asignarCamion(Integer idTramo, String patenteCamion) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
 
@@ -30,13 +36,21 @@ public class TramoService {
         if (transporteServiceClient.verificarCapacidad(patenteCamion, idContenedor)) {
             transporteServiceClient.ocuparCamion(patenteCamion);
             tramo.setPatenteCamion(patenteCamion);
-            tramoRepository.save(tramo);
-            return;
+
+            Tramo tramoGuardado = tramoRepository.save(tramo);
+                        // --- ¡NUEVO: Log de Asignación de Camión! ---
+            logger.info("CAMION ASIGNADO: Patente [{}] asignada a Tramo ID [{}] (Ruta ID [{}])",
+                    patenteCamion,
+                    idTramo,
+                    tramo.getRuta().getId());
+            TramoDTO tramodto = convertTramoDTO(tramoGuardado, "se registro el camion con patente: " + patenteCamion);
+        
+            return tramodto;
         }
         throw new RuntimeException("El camión no es adecuado para el contenedor del tramo");
     }
 
-    public void iniciarTramo(Integer idTramo) {
+    public TramoDTO iniciarTramo(Integer idTramo) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
 
@@ -59,11 +73,11 @@ public class TramoService {
                         .orElseThrow(() -> new RuntimeException("Tramo anterior no encontrado"));
                 calculoCostoService.calcularCostoRealTramo(tramoAnterior, tramo);
                 tramoRepository.save(tramoAnterior);
-               
+
             } else {
                 if (tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
                     calculoCostoService.calcularCostoRealTramo(tramo, null);
-                    //tramoRepository.save(tramo);
+                    // tramoRepository.save(tramo);
                 }
             }
 
@@ -73,10 +87,12 @@ public class TramoService {
             // Usar el costo aproximado como fallback
             tramo.setCostoReal(0.0);
         }
-        tramoRepository.save(tramo);
+        Tramo guardado = tramoRepository.save(tramo);
+        TramoDTO dto = convertTramoDTO(guardado, "se registro le fecha hora inicio del tramo");
+        return dto;
     }
 
-    public Tramo finalizarTramo(Integer idTramo) {
+    public TramoDTO finalizarTramo(Integer idTramo) {
         // Obtener el tramo y validar que existe
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
@@ -117,13 +133,57 @@ public class TramoService {
 
         }
         transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
-        tramoRepository.save(tramo);
-        return tramo;
+        Tramo guardado = tramoRepository.save(tramo);
+        TramoDTO dto = convertTramoDTO(guardado, "se registro le fecha hora fin del tramo");
+         logger.info("TRAMO FINALIZADO: Tramo ID [{}] (Ruta ID [{}])", 
+            tramo.getId(),
+            tramo.getRuta().getId()
+        );
+
+        // --- ¡NUEVO: Lógica de Fin de Solicitud! ---
+        verificarSiSolicitudTermino(tramo);
+        return dto;
+    }
+
+     private void verificarSiSolicitudTermino(Tramo tramoFinalizado) {
+        Ruta ruta = tramoFinalizado.getRuta();
+
+        // 1. Obtener todos los tramos de esta ruta
+        List<Tramo> tramos = tramoRepository.findByRuta(ruta);
+
+        // 2. Verificar si TODOS los tramos tienen fecha de fin
+        boolean todosFinalizados = tramos.stream()
+                                    .allMatch(t -> t.getFechaFin() != null);
+
+        if (todosFinalizados) {
+            // ¡Es el último tramo!
+            Solicitud solicitud = ruta.getSolicitud();
+            solicitudService.cambiarEstadoSolicitud(solicitud,"FINALIZADA", "ENTREGADO"); // O el estado final
+            solicitudService.actualizarSolicitud(solicitud);
+
+            // --- ¡NUEVO: Log de Fin de Solicitud! ---
+            logger.info("SOLICITUD COMPLETADA: Todos los tramos de la Ruta ID [{}] están finalizados. Solicitud ID [{}] marcada como ENTREGADA.",
+                ruta.getId(),
+                solicitud.getId()
+            );
+        }
     }
 
     public void eliminarTramo(Integer idTramo) {
         Tramo tramo = tramoRepository.findById(idTramo)
                 .orElseThrow(() -> new RuntimeException("Tramo no encontrado"));
         tramoRepository.delete(tramo);
+    }
+
+    private TramoDTO convertTramoDTO (Tramo tramo, String msj) {
+        TramoDTO dto = TramoDTO.builder()
+            .id(tramo.getId())
+            .patenteCamion(tramo.getPatenteCamion())
+            .tipoTramo(tramo.getTipoTramo().name())
+            .fechaFin(tramo.getFechaFin())
+            .fechaInicio(tramo.getFechaInicio())
+            .mensaje(msj)
+            .build();
+        return dto;
     }
 }

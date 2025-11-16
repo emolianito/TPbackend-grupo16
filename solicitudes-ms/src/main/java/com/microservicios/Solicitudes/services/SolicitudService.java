@@ -3,8 +3,8 @@ package com.microservicios.Solicitudes.services;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Comparator; // ⬅️ NUEVO
-import java.time.Duration; // ⬅️ NUEVO
+import java.util.Comparator; 
+import java.time.Duration; 
 
 import org.springframework.stereotype.Service;
 
@@ -24,20 +24,32 @@ import com.microservicios.Solicitudes.repository.SolicitudRepository;
 
 import lombok.AllArgsConstructor;
 
+// ¡Añadir imports de Logger!
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @AllArgsConstructor
 public class SolicitudService {
+    private static final Logger logger = LoggerFactory.getLogger(SolicitudService.class);
     private final SolicitudRepository solicitudRepository;
     private final ClienteServiceClient clienteServiceClient;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
 
     public Solicitud createSolicitud(CrearSolicitudDTO dto) {
         Solicitud solicitud = new Solicitud();
-        solicitud.setIdCliente(dto.getIdCliente());
+        solicitud.setDniCliente(dto.getDniCliente());
         solicitud.setIdContenedor(dto.getIdContenedor());
         solicitud.setFechaSolicitud(LocalDate.now());
         cambiarEstadoSolicitud(solicitud, "SOLICITADA", "EN_ORIGEN");
 
+         // --- ¡NUEVO: Log de Creación! ---
+        // Usamos {} como placeholders para los IDs. Es más eficiente.
+        logger.info("SOLICITUD CREADA: ID [{}], Cliente DNI [{}], Contenedor ID [{}]", 
+            solicitud.getId(), 
+            solicitud.getDniCliente(), // Idealmente usar un ID de cliente, no DNI
+            solicitud.getIdContenedor()
+        );
         return solicitudRepository.save(solicitud);
     }
 
@@ -137,7 +149,7 @@ public class SolicitudService {
         SolicitudDTO dto = new SolicitudDTO();
         dto.setId(solicitud.getId());
         dto.setIdContenedor(solicitud.getIdContenedor());
-        dto.setIdCliente(solicitud.getIdCliente());
+        dto.setDniCliente(solicitud.getDniCliente());
         dto.setCostoEstimado(solicitud.getCostoEstimado());
         dto.setCostoReal(solicitud.getCostoReal());
         dto.setTiempoEstimado(solicitud.getTiempoEstimado());

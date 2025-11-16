@@ -26,9 +26,10 @@ public class Solicitud {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
+    
     private Integer idContenedor;
-    private Integer idCliente;
+    @Column(name = "dni_cliente")
+    private String dniCliente;
 
     @Column(nullable = true)
     private Double costoEstimado;

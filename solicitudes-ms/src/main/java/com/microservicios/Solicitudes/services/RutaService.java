@@ -20,9 +20,13 @@ import com.microservicios.Solicitudes.repository.RutaRepository;
 import com.microservicios.Solicitudes.repository.TramoRepository;
 import lombok.RequiredArgsConstructor;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @RequiredArgsConstructor
 public class RutaService {
+     private static final Logger logger = LoggerFactory.getLogger(RutaService.class);
 
     private final RutaRepository rutaRepository;
     private final TramoRepository tramoRepository;
@@ -583,6 +587,13 @@ public class RutaService {
 
         solicitudService.cambiarEstadoSolicitud(solicitud, "PROGRAMADA", "PROGRAMADA");
 
+        // --- ¡NUEVO: Log de Asignación de Ruta! ---
+        logger.info("RUTA ASIGNADA: Ruta ID [{}] (clonada de Ruta [{}]) asignada a Solicitud ID [{}]", 
+            rutaAsignada.getId(),
+            idRuta,
+            idSolicitud
+        );
+        
         return solicitudService.actualizarSolicitud(solicitud);
     }
 

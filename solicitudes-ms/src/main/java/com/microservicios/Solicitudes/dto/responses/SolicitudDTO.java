@@ -15,7 +15,7 @@ public class SolicitudDTO {
 
     private Integer id;
     private Integer idContenedor;
-    private Integer idCliente;
+    private String dniCliente;
     private Double costoEstimado;
     private Double costoReal;
     private String tiempoEstimado;

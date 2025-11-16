@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.microservicios.Solicitudes.dto.request.AsignacionCamionDTO;
+import com.microservicios.Solicitudes.dto.responses.TramoDTO;
 import com.microservicios.Solicitudes.services.TramoService;
 
 import lombok.RequiredArgsConstructor;
@@ -19,23 +20,23 @@ public class TramoController {
 
     //TODO: PASARLE EL ID DEL CAMION EN LA URL MEJOR??
     @PatchMapping("/{idTramo}/asignacion")
-    public ResponseEntity<Void> asignarCamion(
+    public ResponseEntity<TramoDTO> asignarCamion(
             @PathVariable Integer idTramo,
             @RequestBody AsignacionCamionDTO dto) {
-        tramoService.asignarCamion(idTramo, dto.getIdCamion());
-        return ResponseEntity.ok().build();
+        TramoDTO tramo = tramoService.asignarCamion(idTramo, dto.getIdCamion());
+        return ResponseEntity.ok(tramo);
     }
 
     @PatchMapping("/{idTramo}/inicio")
-    public ResponseEntity<Void> iniciarTramo(@PathVariable Integer idTramo) {
-        tramoService.iniciarTramo(idTramo);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<TramoDTO> iniciarTramo(@PathVariable Integer idTramo) {
+        TramoDTO tramo = tramoService.iniciarTramo(idTramo);
+        return ResponseEntity.ok(tramo);
     }
 
     @PatchMapping("/{idTramo}/fin")
-    public ResponseEntity<Void> finalizarTramo(@PathVariable Integer idTramo) {
-        tramoService.finalizarTramo(idTramo);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<TramoDTO> finalizarTramo(@PathVariable Integer idTramo) {
+        TramoDTO tramo = tramoService.finalizarTramo(idTramo);
+        return ResponseEntity.ok(tramo);
     }
 
     //TODO: NO CREO QUE SEA COHERENTE PERMITIR ELIMINAR TRAMOS
