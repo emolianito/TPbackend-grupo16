@@ -43,7 +43,7 @@ public class Tramo {
     private String tiempo;
     
 
-    private int idDepositoDestino;
+    private Integer idDepositoDestino;
 
     private Double distanciaKm;
 }

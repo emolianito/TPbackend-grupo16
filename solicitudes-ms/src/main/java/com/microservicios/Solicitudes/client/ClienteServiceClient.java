@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ClienteServiceClient {
     private final RestClient restClient;
-    private static final String CLIENTE_SERVICE_URL = "http://localhost:8082";
+    private static final String CLIENTE_SERVICE_URL = "http://localhost:8081";
 
     public ContenedorDTO obtenerContenedorPorId(Integer idContenedor) {
         String url = CLIENTE_SERVICE_URL + "/api/contenedores/" + idContenedor;
@@ -35,7 +35,7 @@ public class ClienteServiceClient {
     }
 
     public List<EstadoContenedorDTO> obtenerEstadosContendor() {
-        String url = CLIENTE_SERVICE_URL + "/api/estdos-contenedores";
+        String url = CLIENTE_SERVICE_URL + "/api/estados-contenedor";
         return restClient.get()
             .uri(url)
             .retrieve()

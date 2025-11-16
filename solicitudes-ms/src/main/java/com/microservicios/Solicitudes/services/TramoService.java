@@ -43,28 +43,27 @@ public class TramoService {
         if (tramo.getPatenteCamion() == null) {
             throw new RuntimeException("No se puede iniciar un tramo sin camión asignado");
         }
-        TipoTramo tipoTramo = tramo.getTipoTramo();
 
-        if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)
-                || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
-            solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_RUTA", "EN_CAMINO");
-
-        }
+        solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_RUTA", "EN_CAMINO");
 
         // Guardar el tramo actualizado
 
         tramo.setFechaInicio(LocalDateTime.now());
-        tramoRepository.save(tramo);
+
         // Intentar calcular el costo real del tramo anterios ya que ahora tiene los
         // dias de estadia
+        TipoTramo tipoTramo = tramo.getTipoTramo();
         try {
             if (tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO)) {
                 Tramo tramoAnterior = tramoRepository.findById(tramo.getId() - 1)
                         .orElseThrow(() -> new RuntimeException("Tramo anterior no encontrado"));
                 calculoCostoService.calcularCostoRealTramo(tramoAnterior, tramo);
+                tramoRepository.save(tramoAnterior);
+               
             } else {
                 if (tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
                     calculoCostoService.calcularCostoRealTramo(tramo, null);
+                    //tramoRepository.save(tramo);
                 }
             }
 
@@ -74,7 +73,7 @@ public class TramoService {
             // Usar el costo aproximado como fallback
             tramo.setCostoReal(0.0);
         }
-
+        tramoRepository.save(tramo);
     }
 
     public Tramo finalizarTramo(Integer idTramo) {
@@ -103,12 +102,21 @@ public class TramoService {
         TipoTramo tipoTramo = tramo.getTipoTramo();
 
         if (tipoTramo.equals(TipoTramo.DEPOSITO_DESTINO) || tipoTramo.equals(TipoTramo.ORIGEN_DESTINO)) {
-            solicitudService.finalizarSolicitud(tramo.getRuta().getSolicitud().getId());
-            transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
+            try {
+                calculoCostoService.calcularCostoRealTramo(tramo, null);
+                solicitudService.finalizarSolicitud(tramo.getRuta().getSolicitud());
+            } catch (Exception e) {
+                // Fallback si falla el cálculo (ej: camión/tarifa no encontrada)
+                System.err.println("Error calculando costo real del tramo final " + idTramo + ": " + e.getMessage());
+                tramo.setCostoReal(0.0);
+            }
+            // FIN NUEVA LÓGICA
+
         } else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
             solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_DEPOSITO", "EN_DEPOSITO");
 
         }
+        transporteServiceClient.liberarCamion(tramo.getPatenteCamion());
         tramoRepository.save(tramo);
         return tramo;
     }

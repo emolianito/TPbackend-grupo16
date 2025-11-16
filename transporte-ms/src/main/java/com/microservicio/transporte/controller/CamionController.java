@@ -14,11 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.microservicio.transporte.dto.request.crearCamionDto;
 import com.microservicio.transporte.dto.responses.CamionDto;
-import com.microservicio.transporte.entity.Camion;
 import com.microservicio.transporte.service.CamionService;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/camiones")

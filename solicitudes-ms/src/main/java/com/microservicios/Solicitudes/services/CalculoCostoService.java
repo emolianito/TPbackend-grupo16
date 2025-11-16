@@ -23,9 +23,8 @@ public class CalculoCostoService {
     private final TarifaService tarifaService;
     private final TransporteServiceClient camionClient; // lo dejamos listo
     private final UbicacionesServiceClient depositoClient; // si aún no existe, no pasa nada
-    
-    private static final Logger logger = Logger.getLogger(CalculoCostoService.class.getName());
 
+    private static final Logger logger = Logger.getLogger(CalculoCostoService.class.getName());
 
     public double calcularCostoEstimado(Ruta ruta) {
         // Validar que la ruta tiene tramos
@@ -34,11 +33,12 @@ public class CalculoCostoService {
         }
 
         Tarifa tarifa = tarifaService.getTarifaVigente();
-        
-        double distanciaTotal = ruta.getTramos().stream()
-                .mapToDouble(Tramo::getDistanciaKm)
-                .sum();
 
+        // CORRECCIÓN: Manejar null antes de mapToDouble
+        double distanciaTotal = ruta.getTramos().stream()
+                .mapToDouble(tramo -> tramo.getDistanciaKm() != null ? tramo.getDistanciaKm() : 0.0) // ⬅️ LÍNEA 40
+                                                                                                     // CORREGIDA
+                .sum();
         double costoTrasladoEstimado = distanciaTotal * tarifa.getCostoBasePorKm();
 
         double costoCombustibleEstimado = distanciaTotal
@@ -49,8 +49,8 @@ public class CalculoCostoService {
         int cantidadDepositos = ruta.getTramos().size() - 1;
         double costoEstadiaEstimado = cantidadDepositos * tarifa.getCostoEstadiaDiariaDeposito();
 
-
-        return costoTrasladoEstimado + costoCombustibleEstimado + costoEstadiaEstimado + (ruta.getTramos().size() * tarifa.getCostoFijoPorTramo());
+        return costoTrasladoEstimado + costoCombustibleEstimado + costoEstadiaEstimado
+                + (ruta.getTramos().size() * tarifa.getCostoFijoPorTramo());
 
     }
 
@@ -70,7 +70,7 @@ public class CalculoCostoService {
         for (int i = 0; i < ruta.getTramos().size(); i++) {
 
             Tramo actual = ruta.getTramos().get(i);
-            
+
             costoTotal += actual.getCostoReal() != null ? actual.getCostoReal() : 0.0;
         }
         double costoGestion = (ruta.getTramos().size() * tarifa.getCostoFijoPorTramo());
@@ -87,12 +87,13 @@ public class CalculoCostoService {
             Tarifa tarifaVigente = tarifaService.getTarifaVigente();
             CamionDTO camion = null;
             DepositoDTO deposito = null;
-            
+
             // Intentar obtener datos del camión con manejo de error
             try {
                 camion = camionClient.obtenerCamionPorId(actual.getPatenteCamion());
             } catch (Exception e) {
-                logger.warning("No se pudo obtener camión ID: " + actual.getPatenteCamion() + ". Usando fallback. Error: " + e.getMessage());
+                logger.warning("No se pudo obtener camión ID: " + actual.getPatenteCamion()
+                        + ". Usando fallback. Error: " + e.getMessage());
                 camion = null;
             }
 
@@ -114,28 +115,29 @@ public class CalculoCostoService {
 
             // Si existe tramo siguiente, calculamos estadía
             if (siguiente != null) {
-                
+
                 // Intentar obtener datos del depósito con manejo de error
                 try {
-                     deposito = depositoClient.obtenerDepositoPorId(actual.getIdDepositoDestino());
-                    
+                    deposito = depositoClient.obtenerDepositoPorId(actual.getIdDepositoDestino());
+
                     if (actual.getFechaFin() != null && siguiente.getFechaInicio() != null) {
                         long diasEstadia = ChronoUnit.DAYS.between(actual.getFechaFin(), siguiente.getFechaInicio());
                         costoEstadia = diasEstadia * deposito.getCostoEstadiaDiaria();
                     }
                 } catch (Exception e) {
-                    logger.warning("No se pudo obtener depósito ID: " + actual.getIdUbicacionDestino() + 
+                    logger.warning("No se pudo obtener depósito ID: " + actual.getIdUbicacionDestino() +
                             ". No se calcula estadía. Error: " + e.getMessage());
                     costoEstadia = 0.0;
                 }
             }
-            double costoRealTramo = costoTraslado + costoCombustible + costoEstadia + tarifaVigente.getCostoFijoPorTramo();
+            double costoRealTramo = costoTraslado + costoCombustible + costoEstadia
+                    + tarifaVigente.getCostoFijoPorTramo();
             actual.setCostoReal(costoRealTramo);
 
-            
         } catch (Exception e) {
             logger.severe("Error calculando costo real del tramo " + actual.getId() + ": " + e.getMessage());
             // Como último fallback, retornar el costo aproximado del tramo
-            actual.setCostoReal(0.0);}
+            actual.setCostoReal(0.0);
+        }
     }
 }

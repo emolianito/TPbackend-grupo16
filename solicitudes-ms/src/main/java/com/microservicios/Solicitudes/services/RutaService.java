@@ -153,12 +153,20 @@ public class RutaService {
         Tramo tramo = new Tramo();
         tramo.setRuta(ruta);
         // Usamos IDs de ubicación. 0 es un placeholder para Origen/Destino del cliente
-        // (sin ID en este flujo).
         tramo.setIdUbicacionOrigen(idUbicacionOrigen);
         tramo.setIdUbicacionDestino(idUbicacionDestino);
+
+        // ⬅️ CORRECCIÓN: Establecer idDepositoDestino solo si el tramo finaliza en un
+        // depósito.
+        if (tipoTramo == TipoTramo.ORIGEN_DEPOSITO || tipoTramo == TipoTramo.DEPOSITO_DEPOSITO) {
+            // En estos casos, idUbicacionDestino es el ID del depósito.
+            tramo.setIdDepositoDestino(idUbicacionDestino);
+        }
+
         tramo.setTipoTramo(tipoTramo);
         // El campo 'tiempo' es el 'duracionTexto' de la API.
         tramo.setTiempo(dist.getDuracionTexto());
+        // Se asegura de que la distancia en km se esté estableciendo antes de guardar.
         tramo.setDistanciaKm(dist.getKilometros());
 
         return tramoRepository.save(tramo);
@@ -185,24 +193,23 @@ public class RutaService {
     }
 
     /** Helper para sumar tiempos. */
+    /** Helper para sumar tiempos. */
     private String sumarTiempos(String t1, String t2) {
-        if (t1 == null || t1.equals("00:00"))
-            return t2;
-        if (t2 == null || t2.equals("00:00"))
-            return t1;
-        try {
-            String[] parts1 = t1.split(":");
-            String[] parts2 = t2.split(":");
-            int hours = Integer.parseInt(parts1[0]) + Integer.parseInt(parts2[0]);
-            int minutes = Integer.parseInt(parts1[1]) + Integer.parseInt(parts2[1]);
-            if (minutes >= 60) {
-                hours += minutes / 60;
-                minutes = minutes % 60;
-            }
-            return String.format("%02d:%02d", hours, minutes);
-        } catch (Exception e) {
+        if ((t1 == null || t1.isBlank()) && (t2 == null || t2.isBlank())) {
             return "00:00";
         }
+
+        // Usar parseDuration para obtener objetos Duration y sumarlos
+        java.time.Duration duration1 = parseDuration(t1);
+        java.time.Duration duration2 = parseDuration(t2);
+
+        java.time.Duration totalDuration = duration1.plus(duration2);
+
+        // Formato de retorno HH:MM (solo tiempo de viaje)
+        long hours = totalDuration.toHours();
+        long minutes = totalDuration.toMinutes() % 60;
+
+        return String.format("%02d:%02d", hours, minutes);
     }
 
     // Métodos para convertir la entidad Ruta a DTO
@@ -286,8 +293,12 @@ public class RutaService {
         // 3. Crear y guardar la Ruta
         double kmTotales = tramo1Dist.getKilometros() + tramo2Dist.getKilometros();
         String tiempoTotal = sumarTiempos(tramo1Dist.getDuracionTexto(), tramo2Dist.getDuracionTexto());
+        // CORRECCIÓN: Crear una lista MUTABLE para los tramos
+        java.util.List<Tramo> tramosList = new java.util.ArrayList<>();
+        tramosList.add(tramo1);
+        tramosList.add(tramo2);
 
-        return saveRuta(List.of(tramo1, tramo2), kmTotales, tiempoTotal);
+        return saveRuta(tramosList, kmTotales, tiempoTotal);
     }
 
     /**
@@ -458,171 +469,6 @@ public class RutaService {
     ) {
     }
 
-    // INICIO: CÓDIGO ANTIGUO (MOCK)
-    // Este código lo reemplazaremos en los siguientes pasos,
-    // pero lo dejamos aquí para que el resto del proyecto no se rompa.
-    // ---
-
-    /**
-     * [MOCK] Genera 3 rutas sugeridas dinámicamente según origen y destino.
-     * Las rutas se crean sin asignación a solicitud específica (solicitud = null).
-     * Pueden ser clonadas posteriormente cuando se asignan a una solicitud.
-     */
-    /*
-     * public List<Ruta> generarRutasSugeridas(Integer idUbicacionOrigen, Integer
-     * idUbicacionDestino) {
-     * // En el futuro, validar que las ubicaciones existan en el microservicio de
-     * // ubicaciones
-     * if (idUbicacionOrigen == null || idUbicacionDestino == null) {
-     * throw new RuntimeException("Ubicación origen y destino son requeridas");
-     * }
-     * 
-     * if (idUbicacionOrigen.equals(idUbicacionDestino)) {
-     * throw new RuntimeException("Origen y destino no pueden ser iguales");
-     * }
-     * 
-     * List<Ruta> rutas = new ArrayList<>();
-     * 
-     * // Ruta 1: Directa (1 tramo)
-     * Ruta r1 = crearRutaDirecta(idUbicacionOrigen, idUbicacionDestino);
-     * rutas.add(r1);
-     * 
-     * // Ruta 2: Con 1 parada intermedia (2 tramos)
-     * Ruta r2 = crearRutaConUnaParada(idUbicacionOrigen, idUbicacionDestino);
-     * rutas.add(r2);
-     * 
-     * // Ruta 3: Con 2 paradas intermedias (3 tramos)
-     * Ruta r3 = crearRutaConDosParadas(idUbicacionOrigen, idUbicacionDestino);
-     * rutas.add(r3);
-     * 
-     * return rutas;
-     * }
-     * 
-     * 
-     * [MOCK] Crea una ruta directa de origen a destino (1 tramo)
-     * 
-     * private Ruta crearRutaDirecta(Integer origen, Integer destino) {
-     * Ruta ruta = new Ruta();
-     * ruta.setSolicitud(null); // Ruta global sin solicitud específica
-     * ruta.setCostoEstimado(45000.0);
-     * ruta.setTiempoEstimado("04:30");
-     * rutaRepository.save(ruta);
-     * 
-     * Tramo tramo = new Tramo();
-     * tramo.setRuta(ruta);
-     * tramo.setIdUbicacionOrigen(origen);
-     * tramo.setIdUbicacionDestino(destino);
-     * tramo.setPatenteCamion("1234-ABC");
-     * tramo.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-     * tramo.setCostoAproximado(45000.0);
-     * tramo.setTiempo("04:30");
-     * tramoRepository.save(tramo);
-     * 
-     * return ruta;
-     * }
-     * 
-     * 
-     * [MOCK] Crea una ruta con 1 parada intermedia (2 tramos)
-     * 
-     * private Ruta crearRutaConUnaParada(Integer origen, Integer destino) {
-     * Ruta ruta = new Ruta();
-     * ruta.setSolicitud(null);
-     * ruta.setCostoEstimado(52500.0);
-     * ruta.setTiempoEstimado("05:30");
-     * rutaRepository.save(ruta);
-     * 
-     * // Parada intermedia mock (simulamos ubicación central)
-     * Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
-     * 
-     * // Tramo 1: Origen → Parada
-     * Tramo tramo1 = new Tramo();
-     * tramo1.setRuta(ruta);
-     * tramo1.setIdUbicacionOrigen(origen);
-     * tramo1.setIdUbicacionDestino(parada1);
-     * tramo1.setPatenteCamion("1234-ABC");
-     * tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
-     * tramo1.setCostoAproximado(13500.0);
-     * tramo1.setTiempo("01:30");
-     * tramoRepository.save(tramo1);
-     * 
-     * // Tramo 2: Parada → Destino
-     * Tramo tramo2 = new Tramo();
-     * tramo2.setRuta(ruta);
-     * tramo2.setIdUbicacionOrigen(parada1);
-     * tramo2.setIdUbicacionDestino(destino);
-     * tramo2.setPatenteCamion("5678-DEF");
-     * tramo2.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-     * tramo2.setCostoAproximado(39000.0);
-     * tramo2.setTiempo("04:00");
-     * tramoRepository.save(tramo2);
-     * 
-     * return ruta;
-     * }
-     * 
-     * 
-     * [MOCK] Crea una ruta con 2 paradas intermedias (3 tramos)
-     * 
-     * private Ruta crearRutaConDosParadas(Integer origen, Integer destino) {
-     * Ruta ruta = new Ruta();
-     * ruta.setSolicitud(null);
-     * ruta.setCostoEstimado(48000.0);
-     * ruta.setTiempoEstimado("05:00");
-     * rutaRepository.save(ruta);
-     * 
-     * Integer parada1 = determinarParadaIntermedia(origen, destino, 1);
-     * Integer parada2 = determinarParadaIntermedia(origen, destino, 2);
-     * 
-     * // Tramo 1: Origen → Parada1
-     * Tramo tramo1 = new Tramo();
-     * tramo1.setRuta(ruta);
-     * tramo1.setIdUbicacionOrigen(origen);
-     * tramo1.setIdUbicacionDestino(parada1);
-     * tramo1.setPatenteCamion("1234-ABC");
-     * tramo1.setTipoTramo(TipoTramo.ORIGEN_DEPOSITO);
-     * tramo1.setCostoAproximado(34500.0);
-     * tramo1.setTiempo("03:30");
-     * tramoRepository.save(tramo1);
-     * 
-     * // Tramo 2: Parada1 → Parada2 (intermedio)
-     * Tramo tramo2 = new Tramo();
-     * tramo2.setRuta(ruta);
-     * tramo2.setIdUbicacionOrigen(parada1);
-     * tramo2.setIdUbicacionDestino(parada2);
-     * tramo2.setPatenteCamion("5678-DEF");
-     * // BUG: El dev anterior puso DESSTINO_DEPOSITO, lo copiamos tal cual
-     * tramo2.setTipoTramo(TipoTramo.DESSTINO_DEPOSITO);
-     * tramo2.setCostoAproximado(10000.0);
-     * tramo2.setTiempo("01:00");
-     * tramoRepository.save(tramo2);
-     * 
-     * // Tramo 3: Parada2 → Destino
-     * Tramo tramo3 = new Tramo();
-     * tramo3.setRuta(ruta);
-     * tramo3.setIdUbicacionOrigen(parada2);
-     * tramo3.setIdUbicacionDestino(destino);
-     * tramo3.setPatenteCamion("1234-ABC");
-     * tramo3.setTipoTramo(TipoTramo.DEPOSITO_DESTINO);
-     * tramo3.setCostoAproximado(13500.0);
-     * tramo3.setTiempo("01:30");
-     * tramoRepository.save(tramo3);
-     * 
-     * return ruta;
-     * }
-     * 
-     * 
-     * [MOCK] Determina paradas intermedias mockeadas según origen/destino
-     * 
-     * private Integer determinarParadaIntermedia(Integer origen, Integer destino,
-     * int numeroParada) {
-     * // Mock simple: retorna ubicación intermedia basada en origen/destino
-     * // En futuro, esto vendría del microservicio de ubicaciones
-     * if (numeroParada == 1) {
-     * return 4; // Zárate
-     * } else {
-     * return 5; // San Nicolás
-     * }
-     * }
-     */
     /**
      * Devuelve todas las rutas sugeridas globales (sin solicitud asignada)
      */
@@ -653,11 +499,13 @@ public class RutaService {
      * múltiples
      * solicitudes puedan usar la misma ruta sugerida sin compartir datos.
      */
-/**
+    /**
      * Asigna una ruta a una solicitud.
-     * En lugar de asignar directamente la ruta sugerida, se clona para que múltiples
+     * En lugar de asignar directamente la ruta sugerida, se clona para que
+     * múltiples
      * solicitudes puedan usar la misma ruta sugerida sin compartir datos.
-     * * @param fechaHoraInicioEstimada La fecha y hora en que se espera que comience el primer tramo.
+     * * @param fechaHoraInicioEstimada La fecha y hora en que se espera que
+     * comience el primer tramo.
      */
     public Solicitud asignarRuta(Integer idSolicitud, Integer idRuta, java.time.LocalDateTime fechaHoraInicioEstimada) {
 
@@ -670,38 +518,46 @@ public class RutaService {
         Ruta rutaAsignada = clonarRuta(rutaSugerida, solicitud);
 
         solicitud.setRutaAsignada(rutaAsignada);
-    
+
         // 1. Calcular Costo Estimado
         double costoEstimado = calculoCostoService.calcularCostoEstimado(rutaAsignada);
         solicitud.setCostoEstimado(costoEstimado);
 
         // --- 2. CÁLCULO DE TIEMPOS ESTIMADOS Y FECHAS HORA ---
-        
-        java.time.Duration duracionTotal = java.time.Duration.ZERO;
-        // La hora de fin del tramo anterior se inicializa con la hora de inicio de la ruta
-        java.time.LocalDateTime horaFinTramoAnterior = fechaHoraInicioEstimada; 
-        
-        List<Tramo> tramos = rutaAsignada.getTramos(); 
+
+        // --- 2. CÁLCULO DE TIEMPOS ESTIMADOS Y FECHAS HORA ---
+
+        // No necesitamos duracionTotal si usamos la diferencia entre fechas
+        // java.time.Duration duracionTotal = java.time.Duration.ZERO;
+
+        // La hora de fin del tramo anterior se inicializa con la hora de inicio de la
+        // ruta
+        java.time.LocalDateTime horaFinTramoAnterior = fechaHoraInicioEstimada;
+
+        List<Tramo> tramos = rutaAsignada.getTramos();
+
+        // Variables para capturar las fechas de los extremos
+        java.time.LocalDateTime horaInicioPrimerTramo = fechaHoraInicioEstimada; // Ya conocido
 
         for (int i = 0; i < tramos.size(); i++) {
             Tramo tramo = tramos.get(i);
             java.time.Duration duracionTramo = parseDuration(tramo.getTiempo());
-            
+
             java.time.LocalDateTime horaInicioActual;
-            
+
             // LÓGICA DE RETRASO POR DEPÓSITO
             if (i == 0) {
                 // El primer tramo (i=0) comienza en la hora proporcionada.
                 horaInicioActual = fechaHoraInicioEstimada;
             } else {
-                // Cualquier tramo subsiguiente (i > 0) comienza un día después 
+                // Cualquier tramo subsiguiente (i > 0) comienza un día después
                 // del fin del tramo anterior (para contabilizar la estadía).
                 horaInicioActual = horaFinTramoAnterior.plusDays(1);
             }
-            
+
             // Calcular hora de fin estimada: Inicio + Duración del tramo
             java.time.LocalDateTime horaFinEstimada = horaInicioActual.plus(duracionTramo);
-            
+
             // Guardar las fechas en el tramo
             tramo.setFechaHoraInicioEstimada(horaInicioActual);
             tramo.setFechaHoraFinEstimada(horaFinEstimada);
@@ -709,19 +565,23 @@ public class RutaService {
 
             // Actualizar variables para el próximo tramo y la duración total
             horaFinTramoAnterior = horaFinEstimada;
-            duracionTotal = duracionTotal.plus(duracionTramo);
+            // duracionTotal = duracionTotal.plus(duracionTramo); // ELIMINAR esta línea
         }
 
-        // 3. Calcular tiempo total para la Solicitud (en formato String D:HH:MM)
-        long days = duracionTotal.toDays();
-        long hours = duracionTotal.toHours() % 24;
-        long minutes = duracionTotal.toMinutes() % 60;
-        
+        // 3. Calcular tiempo total para la Solicitud (Diferencia entre extremos)
+        java.time.Duration duracionTotalEstimada = java.time.Duration.between(
+                horaInicioPrimerTramo,
+                horaFinTramoAnterior // horaFinTramoAnterior contiene la fecha de fin estimada del último tramo
+        );
+
+        long days = duracionTotalEstimada.toDays();
+        long hours = duracionTotalEstimada.toHours() % 24;
+        long minutes = duracionTotalEstimada.toMinutes() % 60;
+
         // Formato D:HH:MM
         solicitud.setTiempoEstimado(String.format("%d:%02d:%02d", days, hours, minutes));
-        
-        solicitudService.cambiarEstadoSolicitud(solicitud, "PROGRAMADA", "PROGRAMADA");
 
+        solicitudService.cambiarEstadoSolicitud(solicitud, "PROGRAMADA", "PROGRAMADA");
 
         return solicitudService.actualizarSolicitud(solicitud);
     }
@@ -756,6 +616,7 @@ public class RutaService {
             tramoClonado.setTiempo(tramoOriginal.getTiempo());
             tramoClonado.setDistanciaKm(tramoOriginal.getDistanciaKm());
             tramoClonado.setPatenteCamion(tramoOriginal.getPatenteCamion());
+            tramoClonado.setIdDepositoDestino(tramoOriginal.getIdDepositoDestino());
             // Se pueden agregar más campos si es necesario
             tramoRepository.save(tramoClonado);
             tramosClonados.add(tramoClonado);
@@ -766,33 +627,64 @@ public class RutaService {
         return rutaGuardada;
     }
 
-    // Este método es necesario para el nuevo asignarRuta
-private java.time.Duration parseDuration(String tiempoEstimado) {
-    if (tiempoEstimado == null || tiempoEstimado.isBlank() || !tiempoEstimado.contains(":")) {
+    private java.time.Duration parseDuration(String tiempoEstimado) {
+        if (tiempoEstimado == null || tiempoEstimado.isBlank()) {
+            return java.time.Duration.ZERO;
+        }
+
+        try {
+            if (tiempoEstimado.contains(":")) {
+                // Lógica existente para formato D:HH:MM o HH:MM
+                String[] parts = tiempoEstimado.split(":");
+                if (parts.length == 3) {
+                    long days = Long.parseLong(parts[0]);
+                    long hours = Long.parseLong(parts[1]);
+                    long minutes = Long.parseLong(parts[2]);
+                    return java.time.Duration.ofDays(days).plusHours(hours).plusMinutes(minutes);
+                } else if (parts.length == 2) {
+                    long hours = Long.parseLong(parts[0]);
+                    long minutes = Long.parseLong(parts[1]);
+                    return java.time.Duration.ofHours(hours).plusMinutes(minutes);
+                }
+            } else {
+                // Lógica robusta para formato de texto ("X hours Y mins")
+                long hours = 0;
+                long minutes = 0;
+
+                // 1. Limpiar, convertir a minúsculas y asegurar que solo haya un espacio entre
+                // palabras.
+                String cleanedTime = tiempoEstimado.toLowerCase()
+                        .replace("hours", " h ").replace("hour", " h ")
+                        .replace("mins", " m ").replace("min", " m ")
+                        .replace("days", " d ").replace("day", " d ")
+                        .replace("and", " ").replaceAll("\\s+", " ").trim(); // Asegura un solo espacio
+
+                // Ejemplo: "7 h 23 m"
+                String[] parts = cleanedTime.split(" ");
+
+                // 2. Iterar en pares (valor, unidad)
+                for (int i = 0; i < parts.length - 1; i += 2) {
+                    String value = parts[i];
+                    String unit = parts[i + 1];
+
+                    long num = Long.parseLong(value);
+
+                    if (unit.equals("d")) {
+                        hours += num * 24;
+                    } else if (unit.equals("h")) {
+                        hours += num;
+                    } else if (unit.equals("m")) {
+                        minutes += num;
+                    }
+                }
+                return java.time.Duration.ofHours(hours).plusMinutes(minutes);
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("Error al parsear la duración estimada: " + tiempoEstimado + ". Usando 0. Error: "
+                    + e.getMessage());
+        }
         return java.time.Duration.ZERO;
     }
-
-    try {
-        String[] parts = tiempoEstimado.split(":");
-        
-        if (parts.length == 3) {
-            // Formato: DIAS:HORAS:MINUTOS
-            long days = Long.parseLong(parts[0]);
-            long hours = Long.parseLong(parts[1]);
-            long minutes = Long.parseLong(parts[2]);
-            return java.time.Duration.ofDays(days).plusHours(hours).plusMinutes(minutes);
-            
-        } else if (parts.length == 2) {
-            // Formato: HORAS:MINUTOS
-            long hours = Long.parseLong(parts[0]);
-            long minutes = Long.parseLong(parts[1]);
-            return java.time.Duration.ofHours(hours).plusMinutes(minutes);
-        }
-    } catch (NumberFormatException e) {
-        System.err.println("Error al parsear la duración estimada: " + tiempoEstimado + ". Usando 0.");
-    }
-    return java.time.Duration.ZERO;
-}
 
     // INICIO: NUESTRA LÓGICA (PASO 4)
     // ---

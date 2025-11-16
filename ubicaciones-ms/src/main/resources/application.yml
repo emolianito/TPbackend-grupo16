@@ -3,16 +3,21 @@ spring:
     name: Ubicaciones-Microservicio
 
   datasource:
-    url: jdbc:postgresql://aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require
-    username: postgres.nxlqnoahtsmvujhuzkwi
-    password: grupo16
-    driver-class-name: org.postgresql.Driver
+    #url: jdbc:postgresql://aws-1-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require
+    #username: postgres.nxlqnoahtsmvujhuzkwi
+    #password: grupo16
+    #driver-class-name: org.postgresql.Driver
 
-    hikari:
-      maximum-pool-size: 3
-      minimum-idle: 1
-      idle-timeout: 10000
-      max-lifetime: 300000
+    #hikari:
+      #maximum-pool-size: 3
+      #minimum-idle: 1
+      #idle-timeout: 10000
+      #max-lifetime: 300000
+      # URL de conexión a PostgreSQL local
+    url: jdbc:postgresql://localhost:5432/ubicacionesdb
+    username: postgres # Tu usuario de PostgreSQL
+    password: adminf # Tu contraseña
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:

@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 public class TransporteServiceClient {
     private final RestClient restClient;
     //TODO: DEFINIR BIEN LOS PUERTOS A USAR
-    private static final String TRANSPORTE_SERVICE_URL = "http://localhost:8082";
+    private static final String TRANSPORTE_SERVICE_URL = "http://localhost:8084";
 
     public CamionDTO obtenerCamionPorId(String patente) {
         String url = TRANSPORTE_SERVICE_URL + "/camiones/" + patente;
@@ -40,7 +40,7 @@ public class TransporteServiceClient {
     }
 
     public boolean verificarCapacidad(String patenteCamion, Integer idContenedor) {
-        String url = TRANSPORTE_SERVICE_URL + "/camiones/" + patenteCamion + "/verificar-capacidad/";
+        String url = TRANSPORTE_SERVICE_URL + "/camiones/" + patenteCamion + "/comprobar-capacidad";
         Boolean resultado = restClient.post()
                 .uri(url)
                 .contentType(MediaType.APPLICATION_JSON)

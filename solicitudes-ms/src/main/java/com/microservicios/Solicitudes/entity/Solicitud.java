@@ -11,7 +11,8 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
+import lombok.EqualsAndHashCode; // ⬅️ NUEVO IMPORT
+import lombok.ToString;
 
 
 @Entity
@@ -44,6 +45,8 @@ public class Solicitud {
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "id_ruta", referencedColumnName = "id")
     @JsonManagedReference
+    @EqualsAndHashCode.Exclude // ⬅️ EXCLUIR PARA ROMPER EL CICLO
+    @ToString.Exclude
     private Ruta rutaAsignada;
 
     @ManyToOne
@@ -54,11 +57,13 @@ public class Solicitud {
     private LocalDate fechaSolicitud;
 
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL)
+    @JsonManagedReference
+    @EqualsAndHashCode.Exclude // ⬅️ EXCLUIR COLECCIONES
+    @ToString.Exclude
     private List<CambioEstadoSolicitud> cambiosEstado = new ArrayList<>();
 
     
     public void addCambioEstado(CambioEstadoSolicitud cambioEstado) {
-        cambioEstado.setSolicitud(this);
         this.cambiosEstado.add(cambioEstado);
     }
 }

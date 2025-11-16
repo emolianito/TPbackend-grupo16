@@ -16,5 +16,7 @@ public class ContenedorDTO {
     private Integer estadoId;
 
     private String clienteDni;
+    
+    private Long depostioId;
 
 }
