@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: Ubicaciones-Microservicio
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.nxlqnoahtsmvujhuzkwi}
+    password: ${SPRING_DATASOURCE_PASSWORD:grupo16}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/master}
+
+server:
+  port: 8084
+
+microservicio:
+  contenedores:
+    url: http://clientes-ms:8081/api/contenedores
