@@ -83,10 +83,11 @@ public class TramoService {
 
         } catch (Exception e) {
             // Si falla el cálculo, loguear pero NO fallar
-            System.err.println("Error calculando costo real del tramo " + idTramo + ": " + e.getMessage());
+            logger.error("Error calculando costo real del tramo {}: {}", idTramo, e.getMessage()); // ⬅️ Corregido
             // Usar el costo aproximado como fallback
             tramo.setCostoReal(0.0);
         }
+    
         Tramo guardado = tramoRepository.save(tramo);
         TramoDTO dto = convertTramoDTO(guardado, "se registro le fecha hora inicio del tramo");
         return dto;
@@ -123,10 +124,9 @@ public class TramoService {
                 solicitudService.finalizarSolicitud(tramo.getRuta().getSolicitud());
             } catch (Exception e) {
                 // Fallback si falla el cálculo (ej: camión/tarifa no encontrada)
-                System.err.println("Error calculando costo real del tramo final " + idTramo + ": " + e.getMessage());
+                logger.error("Error calculando costo real del tramo final {}: {}", idTramo, e.getMessage()); // ⬅️ Corregido
                 tramo.setCostoReal(0.0);
             }
-            // FIN NUEVA LÓGICA
 
         } else if (tipoTramo.equals(TipoTramo.ORIGEN_DEPOSITO) || tipoTramo.equals(TipoTramo.DEPOSITO_DEPOSITO)) {
             solicitudService.cambiarEstadoSolicitud(tramo.getRuta().getSolicitud(), "EN_DEPOSITO", "EN_DEPOSITO");

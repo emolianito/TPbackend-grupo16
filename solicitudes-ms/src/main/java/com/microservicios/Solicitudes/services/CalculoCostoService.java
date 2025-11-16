@@ -1,7 +1,7 @@
 package com.microservicios.Solicitudes.services;
 
 import java.time.temporal.ChronoUnit;
-import java.util.logging.Logger;
+// import java.util.logging.Logger; // ⬅️ ELIMINAR ESTE IMPORT
 
 import org.springframework.stereotype.Service;
 
@@ -16,15 +16,19 @@ import com.microservicios.Solicitudes.entity.Tramo;
 
 import lombok.AllArgsConstructor;
 
+import org.slf4j.Logger; // ⬅️ NUEVO: Importar SLF4J Logger
+import org.slf4j.LoggerFactory; // ⬅️ NUEVO: Importar SLF4J LoggerFactory
+
 @Service
 @AllArgsConstructor
 public class CalculoCostoService {
 
+    // ⬅️ CAMBIO: Usar SLF4J Logger
+    private static final Logger logger = LoggerFactory.getLogger(CalculoCostoService.class);
+
     private final TarifaService tarifaService;
     private final TransporteServiceClient camionClient; // lo dejamos listo
     private final UbicacionesServiceClient depositoClient; // si aún no existe, no pasa nada
-
-    private static final Logger logger = Logger.getLogger(CalculoCostoService.class.getName());
 
     public double calcularCostoEstimado(Ruta ruta) {
         // Validar que la ruta tiene tramos
@@ -92,8 +96,9 @@ public class CalculoCostoService {
             try {
                 camion = camionClient.obtenerCamionPorId(actual.getPatenteCamion());
             } catch (Exception e) {
-                logger.warning("No se pudo obtener camión ID: " + actual.getPatenteCamion()
-                        + ". Usando fallback. Error: " + e.getMessage());
+                // ⬅️ CAMBIO: Usar logger.warn y placeholders
+                logger.warn("No se pudo obtener camión ID: {}. Usando fallback. Error: {}",
+                        actual.getPatenteCamion(), e.getMessage());
                 camion = null;
             }
 
@@ -108,7 +113,9 @@ public class CalculoCostoService {
             } else {
                 // Fallback: usar costo aproximado del tramo (ya tenemos esto guardado)
                 costoTraslado = 0.0;
-                logger.info("Usando fallback para costos del tramo " + actual.getId() + ": " + costoTraslado);
+                // ⬅️ CAMBIO: Usar logger.info y placeholders
+                logger.info("Usando fallback para costos del tramo {} (Traslado: {}).",
+                        actual.getId(), costoTraslado);
             }
 
             double costoEstadia = 0.0;
@@ -125,8 +132,9 @@ public class CalculoCostoService {
                         costoEstadia = diasEstadia * deposito.getCostoEstadiaDiaria();
                     }
                 } catch (Exception e) {
-                    logger.warning("No se pudo obtener depósito ID: " + actual.getIdUbicacionDestino() +
-                            ". No se calcula estadía. Error: " + e.getMessage());
+                    // ⬅️ CAMBIO: Usar logger.warn y placeholders
+                    logger.warn("No se pudo obtener depósito ID: {}. No se calcula estadía. Error: {}",
+                            actual.getIdUbicacionDestino(), e.getMessage());
                     costoEstadia = 0.0;
                 }
             }
@@ -135,7 +143,8 @@ public class CalculoCostoService {
             actual.setCostoReal(costoRealTramo);
 
         } catch (Exception e) {
-            logger.severe("Error calculando costo real del tramo " + actual.getId() + ": " + e.getMessage());
+            // ⬅️ CAMBIO: Usar logger.error y placeholders
+            logger.error("Error calculando costo real del tramo {}: {}", actual.getId(), e.getMessage());
             // Como último fallback, retornar el costo aproximado del tramo
             actual.setCostoReal(0.0);
         }

@@ -49,20 +49,20 @@ public class RutaService {
         String origen;
         String destino;
         try {
-            System.out.println("Geocodificando origen: " + request.getOrigenDireccion());
+            logger.info("Geocodificando origen: {}", request.getOrigenDireccion());
             CoordenadasDTO coordsOrigen = ubicacionesServiceClient.obtenerCoordenadas(request.getOrigenDireccion());
 
-            System.out.println("Geocodificando destino: " + request.getDestinoDireccion());
+            logger.info("Geocodificando destino: {}", request.getDestinoDireccion());
             CoordenadasDTO coordsDestino = ubicacionesServiceClient.obtenerCoordenadas(request.getDestinoDireccion());
 
             // Convertimos las coordenadas a "lat,lon" para el resto de la lógica
             origen = coordsOrigen.getLatitud() + "," + coordsOrigen.getLongitud();
             destino = coordsDestino.getLatitud() + "," + coordsDestino.getLongitud();
 
-            System.out.println("Geocodificación OK: " + origen + " -> " + destino);
+            logger.info("Geocodificación OK: {} -> {}", origen, destino);
 
         } catch (RestClientException e) {
-            System.err.println("Error fatal geocodificando direcciones: " + e.getMessage());
+            logger.error("Error fatal geocodificando direcciones: {}", e.getMessage());
             // Si no podemos geocodificar, no podemos calcular.
             throw new RuntimeException("No se pudieron geocodificar las direcciones: " + e.getMessage());
         }
@@ -73,7 +73,7 @@ public class RutaService {
 
         // --- CASO 1: 0 Depósitos (Ruta Directa) ---
         if (k == 0) {
-            System.out.println("Calculando ruta directa (0 paradas)...");
+            logger.info("Calculando ruta directa (0 paradas)...");
             try {
                 DistanciaDTO dist = ubicacionesServiceClient.obtenerDistancia(origen, destino);
                 // Llamada al método que ahora guarda la entidad Ruta
@@ -81,24 +81,24 @@ public class RutaService {
                         request.getDestinoDireccion());
                 rutasGuardadas.add(ruta);
             } catch (RestClientException e) {
-                System.err.println("Error al calcular ruta directa: " + e.getMessage());
+                logger.error("Error al calcular ruta directa: {}", e.getMessage());
             }
         }
 
         // --- CASO 2 o más: 1+ Depósitos ---
         else {
             // 1. (Paso 3) Filtrar depósitos relevantes
-            System.out.println("Calculando rutas con " + k + " parada(s)...");
+            logger.info("Calculando rutas con {} parada(s)...", k);
             List<DepositoRelevante> depositosRelevantes = filtrarDepositosRelevantes(origen, destino);
 
             if (depositosRelevantes.isEmpty()) {
-                System.out.println("No se encontraron depósitos relevantes en la ruta.");
+                logger.info("No se encontraron depósitos relevantes en la ruta.");
                 return List.of(); // Lista vacía
             }
 
             // --- CASO 2.A: 1 Depósito (Optimización) ---
             if (k == 1) {
-                System.out.println("Calculando rutas con 1 parada (Optimizado)...");
+                logger.info("Calculando rutas con 1 parada (Optimizado)...");
                 for (DepositoRelevante dep : depositosRelevantes) {
                     // Llamada al método que ahora guarda la entidad Ruta
                     Ruta ruta = construirRutaConUnaParada(dep, request.getOrigenDireccion(),
@@ -108,7 +108,7 @@ public class RutaService {
             }
             // --- CASO 2.B: 2+ Depósitos (Permutaciones) ---
             else if (k <= depositosRelevantes.size()) {
-                System.out.println("Calculando rutas con " + k + " paradas (Permutaciones)...");
+                logger.info("Calculando rutas con {} paradas (Permutaciones)...", k);
 
                 List<List<DepositoRelevante>> permutaciones = generarPermutaciones(depositosRelevantes, k);
 
@@ -119,12 +119,12 @@ public class RutaService {
                                 request.getDestinoDireccion());
                         rutasGuardadas.add(ruta);
                     } catch (RestClientException e) {
-                        System.err.println("Error calculando ruta multi-parada: " + e.getMessage());
+                        logger.error("Error calculando ruta multi-parada: {}", e.getMessage());
                     }
                 }
             } else {
-                System.out.println("Se pidieron " + k + " paradas, pero solo hay "
-                        + depositosRelevantes.size() + " depósitos relevantes.");
+                logger.info("Se pidieron {} paradas, pero solo hay {} depósitos relevantes.",
+                        k, depositosRelevantes.size());
             }
         }
 
@@ -176,7 +176,7 @@ public class RutaService {
         return tramoRepository.save(tramo);
     }
 
-    /** Helper para persistir una ruta y calcular su costo estimado. */
+    /** Helper para persistir una ruta. */
     private Ruta saveRuta(List<Tramo> tramos, double kmTotales, String tiempoEstimado) {
         Ruta ruta = new Ruta();
         ruta.setSolicitud(null); // Sugerida (global)
@@ -192,11 +192,10 @@ public class RutaService {
             tramoRepository.save(tramo);
         }
 
-        // 3. Actualizar la ruta con el costo estimado
-        return rutaRepository.save(rutaGuardada);
+        // 3. Ya NO se guarda el costo estimado aquí.
+        return rutaGuardada; // Devolver la ruta guardada.
     }
 
-    /** Helper para sumar tiempos. */
     /** Helper para sumar tiempos. */
     private String sumarTiempos(String t1, String t2) {
         if ((t1 == null || t1.isBlank()) && (t2 == null || t2.isBlank())) {
@@ -378,12 +377,7 @@ public class RutaService {
         return saveRuta(tramos, kmTotales, tiempoTotal);
     }
 
-    // ... (rest of the file remains unchanged, including filtrarDepositosRelevantes
-    // and generarPermutaciones)
-
-    // ---
-    // FIN: NUESTRA LÓGICA (PASO 5)
-    // ---
+    // ... (rest of the file remains unchanged, including generarPermutaciones)
 
     /**
      * Filtra la lista completa de depósitos y devuelve solo los que
@@ -402,7 +396,7 @@ public class RutaService {
             // Usamos el cliente para llamar al Microservicio de Ubicaciones
             infoDirecta = ubicacionesServiceClient.obtenerDistancia(origenCoords, destinoCoords);
         } catch (RestClientException e) {
-            System.err.println("Error CRÍTICO al calcular distancia directa: " + e.getMessage());
+            logger.error("Error CRÍTICO al calcular distancia directa: {}", e.getMessage());
             // Si esto falla, no podemos filtrar. Devolvemos una lista vacía.
             return List.of();
         }
@@ -418,16 +412,16 @@ public class RutaService {
         try {
             todosLosDepositos = ubicacionesServiceClient.obtenerDepositos();
         } catch (RestClientException e) {
-            System.err.println("Error CRÍTICO al obtener depósitos: " + e.getMessage());
+            logger.error("Error CRÍTICO al obtener depósitos: {}", e.getMessage());
             return List.of(); // Si no hay depósitos, no hay nada que filtrar.
         }
 
         // 2d. Iniciar el filtrado
         List<DepositoRelevante> depositosRelevantes = new ArrayList<>();
 
-        System.out.println("--- FILTRANDO DEPÓSITOS ---");
-        System.out.println("Distancia Directa: " + distanciaDirectaKm + " km");
-        System.out.println("Umbral Máximo de Desvío: " + distanciaMaximaAceptable + " km");
+        logger.info("--- FILTRANDO DEPÓSITOS ---");
+        logger.info("Distancia Directa: {} km", distanciaDirectaKm);
+        logger.info("Umbral Máximo de Desvío: {} km", distanciaMaximaAceptable);
 
         for (DepositoDTO deposito : todosLosDepositos) {
             // Obtenemos las coordenadas del depósito
@@ -441,24 +435,22 @@ public class RutaService {
                 double distanciaConDesvio = tramo1.getKilometros() + tramo2.getKilometros();
 
                 if (distanciaConDesvio <= distanciaMaximaAceptable) {
-                    System.out.println(
-                            "  RELEVANTE: " + deposito.getNombre() + " (Desvío: " + distanciaConDesvio + " km)");
+                    logger.info("  RELEVANTE: {} (Desvío: {} km)", deposito.getNombre(), distanciaConDesvio);
 
                     // Guardamos los tramos para no recalcularlos después.
                     depositosRelevantes.add(new DepositoRelevante(deposito, tramo1, tramo2));
                 } else {
-                    System.out.println(
-                            "  DESCARTADO: " + deposito.getNombre() + " (Desvío: " + distanciaConDesvio + " km)");
+                    logger.info("  DESCARTADO: {} (Desvío: {} km)", deposito.getNombre(), distanciaConDesvio);
                 }
 
             } catch (RestClientException e) {
                 // Si falla el cálculo para UN depósito (ej: Google no encuentra la ruta),
                 // simplemente lo ignoramos y continuamos con el siguiente.
-                System.err.println("Error calculando desvío para " + deposito.getNombre() + ": " + e.getMessage());
+                logger.warn("Error calculando desvío para {}: {}", deposito.getNombre(), e.getMessage());
             }
         }
 
-        System.out.println("--- FIN FILTRADO. Depósitos relevantes: " + depositosRelevantes.size() + " ---");
+        logger.info("--- FIN FILTRADO. Depósitos relevantes: {} ---", depositosRelevantes.size());
         return depositosRelevantes;
     }
 
@@ -526,8 +518,6 @@ public class RutaService {
         // 1. Calcular Costo Estimado
         double costoEstimado = calculoCostoService.calcularCostoEstimado(rutaAsignada);
         solicitud.setCostoEstimado(costoEstimado);
-
-        // --- 2. CÁLCULO DE TIEMPOS ESTIMADOS Y FECHAS HORA ---
 
         // --- 2. CÁLCULO DE TIEMPOS ESTIMADOS Y FECHAS HORA ---
 
@@ -691,8 +681,8 @@ public class RutaService {
                 return java.time.Duration.ofHours(hours).plusMinutes(minutes);
             }
         } catch (NumberFormatException e) {
-            System.err.println("Error al parsear la duración estimada: " + tiempoEstimado + ". Usando 0. Error: "
-                    + e.getMessage());
+            logger.error("Error al parsear la duración estimada: {}. Usando 0. Error: {}", // ⬅️ Corregido
+                    tiempoEstimado, e.getMessage());
         }
         return java.time.Duration.ZERO;
     }
@@ -707,7 +697,7 @@ public class RutaService {
      * @param depositosRelevantes La lista filtrada de depósitos "en dirección".
      * @param k                   El número de paradas que solicitó el Operador.
      * @return Una lista de listas (ej: [[DepA, DepB], [DepB, DepA], [DepA, DepC],
-     *         ...])
+     * ...])
      */
     private List<List<DepositoRelevante>> generarPermutaciones(
             List<DepositoRelevante> depositosRelevantes, int k) {
@@ -773,8 +763,6 @@ public class RutaService {
     // ---
     // FIN: NUESTRA LÓGICA (PASO 4)
 
-    // Agrega o reemplaza este método auxiliar DENTRO de la clase RutaService
-
     /**
      * Convierte el tiempo estimado en formato "D:HH:MM" o "HH:MM" a minutos
      * totales.
@@ -817,10 +805,9 @@ public class RutaService {
             return totalMinutes;
 
         } catch (NumberFormatException e) {
-            System.err.println("Error al parsear el tiempo estimado (" + tiempoEstimado
-                    + "). Verifique que todas las partes sean números. Error: " + e.getMessage());
+            logger.error("Error al parsear el tiempo estimado ({}). Verifique que todas las partes sean números. Error: {}", // ⬅️ Corregido
+                    tiempoEstimado, e.getMessage());
             return 0;
         }
     }
-    // ---
 }

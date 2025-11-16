@@ -43,6 +43,7 @@ public class SolicitudService {
         solicitud.setFechaSolicitud(LocalDate.now());
         cambiarEstadoSolicitud(solicitud, "SOLICITADA", "EN_ORIGEN");
 
+        Solicitud solicitudGuardada = solicitudRepository.save(solicitud);
          // --- ¡NUEVO: Log de Creación! ---
         // Usamos {} como placeholders para los IDs. Es más eficiente.
         logger.info("SOLICITUD CREADA: ID [{}], Cliente DNI [{}], Contenedor ID [{}]", 
@@ -50,7 +51,7 @@ public class SolicitudService {
             solicitud.getDniCliente(), // Idealmente usar un ID de cliente, no DNI
             solicitud.getIdContenedor()
         );
-        return solicitudRepository.save(solicitud);
+        return solicitudGuardada;
     }
 
     public SolicitudDTO getSolicitudById(int id) {
@@ -204,16 +205,15 @@ public class SolicitudService {
             clienteServiceClient.actualizarContenedor(contenedorDTO);
         } catch (RuntimeException e) {
             // Captura el error de 'orElseThrow' o cualquier error de negocio.
-            System.err.println("Error de negocio: " + e.getMessage());
+            logger.error("Error de negocio: {}", e.getMessage()); // ⬅️ Corregido
             // Aquí puedes añadir lógica para deshacer el cambio de estado de la solicitud
             throw e; // Relanza la excepción para que el endpoint HTTP falle.
         } catch (Exception e) {
             // Captura errores de comunicación del RestClient
-            System.err.println("Error CRÍTICO al comunicarse con ClienteService: " + e.getMessage());
+            logger.error("Error CRÍTICO al comunicarse con ClienteService: {}", e.getMessage()); // ⬅️ Corregido
             // Aquí puedes añadir lógica para deshacer el cambio de estado de la solicitud
             throw new RuntimeException("Fallo la comunicación con el servicio de Clientes.", e);
         }
-
         solicitud.setEstado(estadoSolicitud);
         solicitudRepository.save(solicitud);
     }
